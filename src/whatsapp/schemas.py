@@ -25,3 +25,15 @@ class GroupResponse(BaseModel):
     is_locked: bool
     is_community: bool
     picture_url: str | None  # group DP; None if no photo. WhatsApp URLs expire after a while.
+
+
+class GroupMemberResponse(BaseModel):
+    jid: str  # 919876543210@s.whatsapp.net, or 123456789012345@lid in privacy-mode groups
+    phone: str | None  # None when WhatsApp hides the number
+    lid: str | None
+    saved_name: str | None  # name in the linked account owner's phone contacts
+    push_name: str | None  # name the member set on their own WhatsApp profile
+    business_name: str | None  # WhatsApp Business name, if any
+    is_admin: bool
+    is_super_admin: bool  # group creator
+    picture_url: str | None  # member's DP; None if no photo or hidden by their privacy settings

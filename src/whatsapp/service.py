@@ -3,14 +3,33 @@ import logging
 from datetime import datetime, timezone
 
 import segno
-from neonize.proto.Neonize_pb2 import JID, Device, GetProfilePictureParams, GroupInfo
+from neonize.proto.Neonize_pb2 import JID, ContactInfo, Device, GetProfilePictureParams
 from neonize.utils.jid import Jid2String
 
 from src.whatsapp import sessions
-from src.whatsapp.constants import CONNECT_WAIT_SECONDS, QR_WAIT_SECONDS, AccountStatus
-from src.whatsapp.exceptions import AlreadyLinked, NotLinked, NotReady, WhatsappRequestFailed
+from src.whatsapp.constants import (
+    CONNECT_WAIT_SECONDS,
+    ERR_GROUP_NOT_FOUND,
+    ERR_NOT_GROUP_MEMBER,
+    QR_WAIT_SECONDS,
+    AccountStatus,
+)
+from src.whatsapp.exceptions import (
+    AlreadyLinked,
+    GroupNotFound,
+    NotGroupMember,
+    NotLinked,
+    NotReady,
+    WhatsappRequestFailed,
+)
 from src.whatsapp.repository import WhatsappAccountRepository
-from src.whatsapp.utils import group_to_dict
+from src.whatsapp.utils import (
+    contacts_by_jid,
+    find_contact,
+    group_jid,
+    group_to_dict,
+    member_to_dict,
+)
 
 log = logging.getLogger(__name__)
 
@@ -48,16 +67,42 @@ class WhatsappService:
             groups = s.client.get_joined_groups()
         except Exception as e:
             raise WhatsappRequestFailed(str(e)) from e
-        return [group_to_dict(g, self._group_picture_url(s, g)) for g in groups]
+        return [
+            group_to_dict(g, self._picture_url(s, g.JID, is_community=g.GroupParent.IsParent))
+            for g in groups
+        ]
 
-    def _group_picture_url(self, s: sessions.Session, group: GroupInfo) -> str | None:
-        """The group's DP URL, or None if it has no photo or can't be fetched."""
+    def list_group_members(self, client_id: str, group_id: str) -> list[dict]:
+        s = self._connected_session(client_id)
         try:
-            pic = s.client.get_profile_picture(
-                group.JID, GetProfilePictureParams(IsCommunity=group.GroupParent.IsParent)
-            )
-        except Exception as e:  # no photo set, or not allowed to see it
-            log.debug("no picture for %s: %s", group.JID.User, e)
+            info = s.client.get_group_info(group_jid(group_id))
+        except Exception as e:
+            msg = str(e)
+            if ERR_GROUP_NOT_FOUND in msg:
+                raise GroupNotFound() from e
+            if ERR_NOT_GROUP_MEMBER in msg:
+                raise NotGroupMember() from e
+            raise WhatsappRequestFailed(msg) from e
+        contacts = self._contacts(s)
+        return [
+            member_to_dict(p, self._picture_url(s, p.JID), find_contact(p, contacts))
+            for p in info.Participants
+        ]
+
+    def _contacts(self, s: sessions.Session) -> dict[str, ContactInfo]:
+        """The linked account's local contact store (names synced from the phone)."""
+        try:
+            return contacts_by_jid(s.client.contact.get_all_contacts())
+        except Exception as e:  # names are optional; never fail the request over them
+            log.warning("could not read contacts for %s: %s", s.client_id, e)
+            return {}
+
+    def _picture_url(self, s: sessions.Session, jid: JID, is_community: bool = False) -> str | None:
+        """DP URL of a group or user, or None if there's no photo or it isn't visible to us."""
+        try:
+            pic = s.client.get_profile_picture(jid, GetProfilePictureParams(IsCommunity=is_community))
+        except Exception as e:  # no photo set, or hidden by the person's privacy settings
+            log.debug("no picture for %s: %s", jid.User, e)
             return None
         return pic.URL or None
 
