@@ -33,6 +33,7 @@ class Session:
         self.client = client
         self.latest_qr: str | None = None
         self.qr_ready = threading.Event()  # set once WhatsApp sends a QR
+        self.connected = threading.Event()  # set while logged in and connected
         self.thread: threading.Thread | None = None
 
     def is_running(self) -> bool:
@@ -58,10 +59,12 @@ def _register_handlers(s: Session, on_connected: OnConnected, on_logged_out: OnL
     @c.event(ConnectedEv)
     def _on_connected(client: NewClient, _: ConnectedEv):
         s.latest_qr = None
+        s.connected.set()
         on_connected(s.client_id, client.get_me())
 
     @c.event(LoggedOutEv)
     def _on_logged_out(client: NewClient, ev: LoggedOutEv):
+        s.connected.clear()
         with _registry_lock:
             if _sessions.get(s.client_id) is s:
                 del _sessions[s.client_id]

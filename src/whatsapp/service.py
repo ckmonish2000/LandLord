@@ -3,13 +3,14 @@ import logging
 from datetime import datetime, timezone
 
 import segno
-from neonize.proto.Neonize_pb2 import JID, Device
+from neonize.proto.Neonize_pb2 import JID, Device, GetProfilePictureParams, GroupInfo
 from neonize.utils.jid import Jid2String
 
 from src.whatsapp import sessions
-from src.whatsapp.constants import QR_WAIT_SECONDS, AccountStatus
-from src.whatsapp.exceptions import AlreadyLinked, NotReady
+from src.whatsapp.constants import CONNECT_WAIT_SECONDS, QR_WAIT_SECONDS, AccountStatus
+from src.whatsapp.exceptions import AlreadyLinked, NotLinked, NotReady, WhatsappRequestFailed
 from src.whatsapp.repository import WhatsappAccountRepository
+from src.whatsapp.utils import group_to_dict
 
 log = logging.getLogger(__name__)
 
@@ -38,6 +39,27 @@ class WhatsappService:
             return s.client.PairPhone(phone, show_push_notification=True)
         except Exception as e:
             raise NotReady(str(e)) from e
+
+    # ---- groups ----
+
+    def list_groups(self, client_id: str) -> list[dict]:
+        s = self._connected_session(client_id)
+        try:
+            groups = s.client.get_joined_groups()
+        except Exception as e:
+            raise WhatsappRequestFailed(str(e)) from e
+        return [group_to_dict(g, self._group_picture_url(s, g)) for g in groups]
+
+    def _group_picture_url(self, s: sessions.Session, group: GroupInfo) -> str | None:
+        """The group's DP URL, or None if it has no photo or can't be fetched."""
+        try:
+            pic = s.client.get_profile_picture(
+                group.JID, GetProfilePictureParams(IsCommunity=group.GroupParent.IsParent)
+            )
+        except Exception as e:  # no photo set, or not allowed to see it
+            log.debug("no picture for %s: %s", group.JID.User, e)
+            return None
+        return pic.URL or None
 
     # ---- lifecycle ----
 
@@ -80,6 +102,15 @@ class WhatsappService:
             raise AlreadyLinked()
         if not s.qr_ready.wait(QR_WAIT_SECONDS):
             raise NotReady("WhatsApp did not respond in time, retry in a few seconds")
+        return s
+
+    def _connected_session(self, client_id: str) -> sessions.Session:
+        """Return the user's linked session once it is connected (resuming it if needed)."""
+        if not self._is_linked(client_id):
+            raise NotLinked()
+        s = self._start_session(client_id)
+        if not s.connected.wait(CONNECT_WAIT_SECONDS):
+            raise NotReady("WhatsApp is still connecting, retry in a few seconds")
         return s
 
     # ---- event callbacks (called from the session's thread) ----

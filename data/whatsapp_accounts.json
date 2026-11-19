@@ -2,17 +2,17 @@
   {
     "id": "14423c3c-17f6-4467-980b-ae02e4872ec2",
     "client_id": "b0107e98-b1e5-4022-a6a9-f4ac2d78ccd3",
-    "jid": "917892509760:80@s.whatsapp.net",
+    "jid": "917892509760:81@s.whatsapp.net",
     "phone": "917892509760",
     "server": "s.whatsapp.net",
-    "device": 80,
-    "lid": "145200060084298:80@lid",
-    "push_name": "",
+    "device": 81,
+    "lid": "145200060084298:81@lid",
+    "push_name": "Monish",
     "business_name": "",
     "platform": "android",
-    "status": "logged_out",
+    "status": "connected",
     "linked_at": "2026-11-17T17:55:47.462779+00:00",
-    "last_connected_at": "2026-11-17T17:55:47.462779+00:00",
+    "last_connected_at": "2026-11-19T16:15:55.964256+00:00",
     "logged_out_at": "2026-11-17T17:56:19.060689+00:00"
   }
 ]
