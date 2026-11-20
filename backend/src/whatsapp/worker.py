@@ -1,7 +1,9 @@
 """Routes the linked user's own WhatsApp messages to an agent and replies,
 using a thread pool so slow work stays off neonize's event threads.
 
-Flow per message from me:
+Only messages the user sends in their own "Message yourself" chat are handled.
+
+Flow per message:
   1. save the request (status: processing) and react 👁️
   2. a worker thread runs the agent and replies (quoting the message)
   3. reaction becomes ✅ and the request is marked done,
@@ -62,7 +64,7 @@ class MessageHandler:
     def on_message(self, client_id: str, client: NewClient, event: MessageEv) -> None:
         """Called on neonize's thread for every message: keep it quick, hand off to a worker."""
         source = event.Info.MessageSource
-        if not source.IsFromMe:
+        if not source.IsFromMe or not self._is_self_chat(client, source.Chat):
             return
         prompt = extract_text(event.Message).strip()
         if not prompt or prompt.startswith(self.agent.signature):
@@ -93,6 +95,16 @@ class MessageHandler:
         )
         self._react(task, REACTION_RECEIVED)
         _executor.submit(self._process, task)
+
+    @staticmethod
+    def _is_self_chat(client: NewClient, chat: JID) -> bool:
+        """True for the user's own "Message yourself" chat.
+
+        WhatsApp may address that chat by the phone number or by the account's @lid id.
+        """
+        me = client.get_me()
+        own_ids = {me.JID.User, me.LID.User} - {""}
+        return chat.User in own_ids
 
     def _process(self, task: MessageTask) -> None:
         """Runs on a worker thread."""

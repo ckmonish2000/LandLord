@@ -61,6 +61,17 @@ class WhatsappService:
         except Exception as e:
             raise NotReady(str(e)) from e
 
+    # ---- accounts ----
+
+    def list_accounts(self, client_id: str) -> list[dict]:
+        """WhatsApp accounts linked by this app user (currently at most one)."""
+        account = self.repository.get_by_client_id(client_id)
+        if not account:
+            return []
+        fields = ("id", "jid", "phone", "push_name", "business_name", "platform",
+                  "status", "linked_at", "last_connected_at")
+        return [{f: account.get(f) or None for f in fields}]
+
     # ---- groups ----
 
     def list_groups(self, client_id: str) -> list[dict]:

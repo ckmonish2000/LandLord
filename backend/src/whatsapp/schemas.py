@@ -37,3 +37,15 @@ class GroupMemberResponse(BaseModel):
     is_admin: bool
     is_super_admin: bool  # group creator
     picture_url: str | None  # member's DP; None if no photo or hidden by their privacy settings
+
+
+class AccountResponse(BaseModel):
+    id: str
+    jid: str | None
+    phone: str | None
+    push_name: str | None  # name set on the WhatsApp profile
+    business_name: str | None
+    platform: str | None
+    status: str  # connected | logged_out
+    linked_at: str | None
+    last_connected_at: str | None
