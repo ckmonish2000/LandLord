@@ -10,7 +10,7 @@ import threading
 from collections.abc import Callable
 
 from neonize.client import NewClient
-from neonize.events import ConnectedEv, LoggedOutEv, PairStatusEv
+from neonize.events import ConnectedEv, LoggedOutEv, MessageEv, PairStatusEv
 from neonize.proto.Neonize_pb2 import JID, Device
 
 from src.config import settings
@@ -22,6 +22,7 @@ settings.DATA_DIR.mkdir(exist_ok=True)
 
 OnConnected = Callable[[str, Device], None]  # (client_id, me)
 OnLoggedOut = Callable[[str, int], None]  # (client_id, reason)
+OnMessage = Callable[[str, NewClient, MessageEv], None]  # (client_id, client, event)
 
 _sessions: dict[str, "Session"] = {}
 _registry_lock = threading.Lock()
@@ -40,7 +41,12 @@ class Session:
         return self.thread is not None and self.thread.is_alive()
 
 
-def _register_handlers(s: Session, on_connected: OnConnected, on_logged_out: OnLoggedOut) -> None:
+def _register_handlers(
+    s: Session,
+    on_connected: OnConnected,
+    on_logged_out: OnLoggedOut,
+    on_message: OnMessage,
+) -> None:
     c = s.client
 
     def on_qr(_: NewClient, data: bytes):
@@ -72,12 +78,17 @@ def _register_handlers(s: Session, on_connected: OnConnected, on_logged_out: OnL
         threading.Thread(target=client.stop, daemon=True).start()
         on_logged_out(s.client_id, ev.Reason)
 
+    @c.event(MessageEv)
+    def _on_message(client: NewClient, ev: MessageEv):
+        on_message(s.client_id, client, ev)
+
 
 def get_or_start(
     client_id: str,
     jid: JID | None,
     on_connected: OnConnected,
     on_logged_out: OnLoggedOut,
+    on_message: OnMessage,
 ) -> Session:
     """Return the running session for client_id, or start one.
 
@@ -94,7 +105,7 @@ def get_or_start(
             client = NewClient(whatsapp_settings.WHATSAPP_DB, uuid=client_id, new_device=True)
 
         s = Session(client_id, client)
-        _register_handlers(s, on_connected, on_logged_out)
+        _register_handlers(s, on_connected, on_logged_out, on_message)
         s.thread = threading.Thread(target=client.connect, daemon=True, name=f"wa-{client_id}")
         s.thread.start()
         _sessions[client_id] = s

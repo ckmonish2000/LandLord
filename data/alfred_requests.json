@@ -1,0 +1,93 @@
+[
+  {
+    "id": "2ca8b544-776d-4ca7-875b-3eb486c5e5f0",
+    "client_id": "b0107e98-b1e5-4022-a6a9-f4ac2d78ccd3",
+    "chat_jid": "145200060084298@lid",
+    "sender_jid": "145200060084298@lid",
+    "message_id": "ACF28ECF651D98529F1054739A61C450",
+    "prompt": "Yo",
+    "response": "/alfred\nhey this is alfred",
+    "status": "done",
+    "error": null,
+    "created_at": "2026-11-20T16:32:18.734094+00:00",
+    "completed_at": "2026-11-20T16:32:19.525086+00:00"
+  },
+  {
+    "id": "e84fb4f4-d907-4655-96d0-ea18924ac558",
+    "client_id": "b0107e98-b1e5-4022-a6a9-f4ac2d78ccd3",
+    "chat_jid": "145200060084298@lid",
+    "sender_jid": "145200060084298@lid",
+    "message_id": "AC6099BE2DAAC4A21EB35C1A3092645B",
+    "prompt": "Bro",
+    "response": "* [alfred] *\nhey this is alfred",
+    "status": "done",
+    "error": null,
+    "created_at": "2026-11-20T16:33:42.000633+00:00",
+    "completed_at": "2026-11-20T16:33:47.039252+00:00"
+  },
+  {
+    "id": "a8a49f96-683f-449a-bba2-820f1681e19a",
+    "client_id": "b0107e98-b1e5-4022-a6a9-f4ac2d78ccd3",
+    "chat_jid": "145200060084298@lid",
+    "sender_jid": "145200060084298@lid",
+    "message_id": "AC0833A6B494D8C395DC0C25B087363D",
+    "prompt": "Hey",
+    "response": "[alfred] \n\nhey this is alfred",
+    "status": "done",
+    "error": null,
+    "created_at": "2026-11-20T16:34:13.654397+00:00",
+    "completed_at": "2026-11-20T16:34:18.463024+00:00"
+  },
+  {
+    "id": "973b29a6-892d-48b0-8639-e442ce831f60",
+    "client_id": "b0107e98-b1e5-4022-a6a9-f4ac2d78ccd3",
+    "chat_jid": "145200060084298@lid",
+    "sender_jid": "145200060084298@lid",
+    "message_id": "AC4AB942D94E9F77F14086572E3AA2A2",
+    "prompt": "Yo",
+    "response": "[alfred \ud83e\udd16]:\nhey this is alfred",
+    "status": "done",
+    "error": null,
+    "created_at": "2026-11-20T16:35:05.136330+00:00",
+    "completed_at": "2026-11-20T16:35:10.090059+00:00"
+  },
+  {
+    "id": "0d917be4-b1d6-468d-a5fb-cee1cde26056",
+    "client_id": "b0107e98-b1e5-4022-a6a9-f4ac2d78ccd3",
+    "chat_jid": "145200060084298@lid",
+    "sender_jid": "145200060084298@lid",
+    "message_id": "ACBC40DFA5AB8427E61662BA60464C0E",
+    "prompt": "Beuh",
+    "response": "\ud83e\udd16: \n\nhey this is alfred",
+    "status": "done",
+    "error": null,
+    "created_at": "2026-11-20T16:35:28.070388+00:00",
+    "completed_at": "2026-11-20T16:35:33.101380+00:00"
+  },
+  {
+    "id": "78d05363-3bf8-464d-8fbf-53f88e3fb24c",
+    "client_id": "b0107e98-b1e5-4022-a6a9-f4ac2d78ccd3",
+    "chat_jid": "145200060084298@lid",
+    "sender_jid": "145200060084298@lid",
+    "message_id": "ACF00C145FFC9E7F57FE7F227D37BBF0",
+    "prompt": "Hey",
+    "response": "\ud83c\udfa9 *Alfred*\nhey this is alfred",
+    "status": "done",
+    "error": null,
+    "created_at": "2026-11-20T16:36:31.003492+00:00",
+    "completed_at": "2026-11-20T16:36:35.783449+00:00"
+  },
+  {
+    "id": "6501a414-79af-4022-a2d3-3189f0590f82",
+    "client_id": "b0107e98-b1e5-4022-a6a9-f4ac2d78ccd3",
+    "chat_jid": "145200060084298@lid",
+    "sender_jid": "145200060084298@lid",
+    "message_id": "AC219249FE35476435A525E7BA60AB29",
+    "prompt": "Yo",
+    "response": "\ud83c\udfa9 *Alfred*\n\nHey, this is Alfred \ud83d\udc4b\nHow can I help you today?",
+    "status": "done",
+    "error": null,
+    "created_at": "2026-11-20T16:38:58.482749+00:00",
+    "completed_at": "2026-11-20T16:39:03.356126+00:00"
+  }
+]
