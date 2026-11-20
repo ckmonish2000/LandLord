@@ -6,6 +6,18 @@ from neonize.utils.jid import Jid2String
 from src.whatsapp.constants import GROUP_SERVER
 
 
+def format_agent_reply(signature: str, body: str) -> str:
+    """An agent's reply layout on WhatsApp:
+
+        🎩 *Alfred*
+        <blank line>
+        <body>
+
+    Always starts with the agent's signature so it can ignore its own messages.
+    """
+    return f"{signature}\n\n{body.strip()}"
+
+
 def group_jid(group_id: str) -> JID:
     """'120363...@g.us' or '120363...' -> group JID."""
     user = group_id.split("@", 1)[0]

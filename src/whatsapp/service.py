@@ -7,6 +7,7 @@ from neonize.proto.Neonize_pb2 import JID, ContactInfo, Device, GetProfilePictur
 from neonize.utils.jid import Jid2String
 
 from src.whatsapp import sessions
+from src.whatsapp.worker import MessageHandler
 from src.whatsapp.constants import (
     CONNECT_WAIT_SECONDS,
     ERR_GROUP_NOT_FOUND,
@@ -39,8 +40,9 @@ def _now() -> str:
 
 
 class WhatsappService:
-    def __init__(self, repository: WhatsappAccountRepository):
+    def __init__(self, repository: WhatsappAccountRepository, messages: MessageHandler):
         self.repository = repository
+        self.messages = messages
 
     # ---- linking ----
 
@@ -116,6 +118,7 @@ class WhatsappService:
 
     def stop_all(self) -> None:
         sessions.stop_all()
+        self.messages.shutdown()
 
     # ---- internals ----
 
@@ -136,7 +139,9 @@ class WhatsappService:
                 Integrator=0,
                 IsEmpty=False,
             )
-        return sessions.get_or_start(client_id, jid, self._on_connected, self._on_logged_out)
+        return sessions.get_or_start(
+            client_id, jid, self._on_connected, self._on_logged_out, self.messages.on_message
+        )
 
     def _session_awaiting_pairing(self, client_id: str) -> sessions.Session:
         """Start (or reuse) the user's session and wait until WhatsApp is ready to pair."""

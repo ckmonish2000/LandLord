@@ -12,3 +12,11 @@ class WhatsappAccountRepository(JsonCollection):
 
     def save(self, client_id: str, fields: dict) -> dict:
         return self.upsert("client_id", client_id, fields)
+
+
+class AgentRequestRepository(JsonCollection):
+    """Every message sent to an agent: the prompt, the response and how it ended."""
+
+    def __init__(self):
+        # Kept as "alfred_requests" so existing records stay; each record has an "agent" field.
+        super().__init__("alfred_requests")
