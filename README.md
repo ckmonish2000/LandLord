@@ -3,7 +3,7 @@
 Monorepo:
 
 - `backend/`: FastAPI + neonize (WhatsApp) API
-- `frontend/landlord/`: React app (Vite + TypeScript)
+- `frontend/`: React app (Vite + TypeScript)
 
 ## Run in development
 
@@ -18,7 +18,7 @@ uv run fastapi dev src/main.py
 Frontend (http://localhost:5173):
 
 ```sh
-cd frontend/landlord
+cd frontend
 npm install
 npm run dev
 ```

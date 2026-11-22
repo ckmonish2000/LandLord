@@ -1,4 +1,13 @@
-import type { Account, Group, Member, User } from "./types";
+import type {
+  Account,
+  Group,
+  HouseAssignment,
+  HouseAssignmentInput,
+  Member,
+  Property,
+  PropertyMember,
+  User,
+} from "./types";
 
 const TOKEN_KEY = "landlord.token";
 
@@ -81,4 +90,14 @@ export const api = {
     json<Member[]>(`/whatsapp/groups/${encodeURIComponent(groupJid)}/members`),
   /** QR as an image blob (needs the auth header, so it can't be a plain <img src>). */
   qr: async () => (await request("/whatsapp/qr")).blob(),
+
+  properties: () => json<Property[]>("/properties"),
+  createProperty: (groupJid: string) =>
+    json<Property>("/properties", { method: "POST", body: JSON.stringify({ group_jid: groupJid }) }),
+  propertyMembers: (propertyId: string) => json<PropertyMember[]>(`/properties/${propertyId}/members`),
+  setMemberHouse: (propertyId: string, memberJid: string, house: HouseAssignmentInput) =>
+    json<HouseAssignment>(`/properties/${propertyId}/members/${encodeURIComponent(memberJid)}/house`, {
+      method: "PUT",
+      body: JSON.stringify(house),
+    }),
 };

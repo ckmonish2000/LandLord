@@ -42,3 +42,33 @@ export interface Member {
   is_super_admin: boolean;
   picture_url: string | null;
 }
+
+/** A WhatsApp group the landlord manages. */
+export interface Property {
+  id: string;
+  group_jid: string;
+  name: string;
+  created_at: string;
+}
+
+export interface House {
+  id: string;
+  floor: string;
+  number: string;
+}
+
+/** A member's link to a house: they can own it, live in it, or both. */
+export interface HouseAssignment {
+  house: House | null; // null until assigned
+  is_owner: boolean;
+  lives_here: boolean;
+}
+
+export interface HouseAssignmentInput {
+  floor: string;
+  number: string;
+  is_owner: boolean;
+  lives_here: boolean;
+}
+
+export interface PropertyMember extends Member, HouseAssignment {}

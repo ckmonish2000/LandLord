@@ -15,6 +15,10 @@ def _lock_for(path: Path) -> Lock:
         return _locks.setdefault(path, Lock())
 
 
+def _matches(record: dict, match: dict) -> bool:
+    return all(record.get(k) == v for k, v in match.items())
+
+
 class JsonCollection:
     """A collection stored as a JSON list in data/<name>.json."""
 
@@ -45,6 +49,10 @@ class JsonCollection:
     def find_one(self, field: str, value) -> dict | None:
         return next((r for r in self._read() if r.get(field) == value), None)
 
+    def find(self, **match) -> list[dict]:
+        """All records whose fields equal every value in `match`."""
+        return [r for r in self._read() if _matches(r, match)]
+
     def create(self, record: dict) -> dict:
         with self._lock:
             records = self._read()
@@ -65,14 +73,18 @@ class JsonCollection:
 
     def upsert(self, field: str, value, fields: dict) -> dict:
         """Update the first record where record[field] == value, or create it."""
+        return self.upsert_where({field: value}, fields)
+
+    def upsert_where(self, match: dict, fields: dict) -> dict:
+        """Update the first record matching every value in `match`, or create it."""
         with self._lock:
             records = self._read()
             for r in records:
-                if r.get(field) == value:
+                if _matches(r, match):
                     r.update({k: v for k, v in fields.items() if k != "id"})
                     self._write(records)
                     return r
-            new = {"id": str(uuid.uuid4()), field: value, **fields}
+            new = {"id": str(uuid.uuid4()), **match, **fields}
             records.append(new)
             self._write(records)
             return new

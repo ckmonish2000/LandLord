@@ -1,19 +1,33 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { formatPhone } from "../format";
-import type { Group, Member } from "../types";
+import type { Member } from "../types";
 import Avatar from "./Avatar";
 import { GroupIcon, SearchIcon } from "./Icons";
 
-interface Props {
-  group: Group | null;
-  members: Member[] | null;
+/** What the panel header shows: a group, or a property (which is a group). */
+export interface PanelSubject {
+  name: string;
+  pictureUrl?: string | null;
+  subtitle?: string;
+}
+
+interface Props<M extends Member> {
+  subject: PanelSubject | null;
+  members: M[] | null;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  /** Shown when nothing is selected. */
+  emptyTitle?: string;
+  emptyText?: string;
+  /** Button(s) on the right of the header, e.g. "Add as property". */
+  headerAction?: ReactNode;
+  /** Extra controls on the right of each member row, e.g. floor / house fields. */
+  renderMemberExtra?: (m: M) => ReactNode;
 }
 
 /** WhatsApp style: saved contact name as title; otherwise the number, with ~push name below. */
-function memberTitle(m: Member): string {
+export function memberTitle(m: Member): string {
   return m.saved_name || formatPhone(m.phone) || m.push_name || "Hidden number";
 }
 
@@ -25,8 +39,18 @@ function memberSubtitle(m: Member): string | null {
 
 const rank = (m: Member) => (m.is_super_admin ? 0 : m.is_admin ? 1 : 2);
 
-/** Right column: members of the selected group. */
-export default function MemberPanel({ group, members, loading, error, onRetry }: Props) {
+/** Right column: members of the selected group / property. */
+export default function MemberPanel<M extends Member>({
+  subject,
+  members,
+  loading,
+  error,
+  onRetry,
+  emptyTitle = "Select a group",
+  emptyText = "Pick a group on the left to see its members.",
+  headerAction,
+  renderMemberExtra,
+}: Props<M>) {
   const [query, setQuery] = useState("");
 
   const visible = useMemo(() => {
@@ -40,12 +64,12 @@ export default function MemberPanel({ group, members, loading, error, onRetry }:
     );
   }, [members, query]);
 
-  if (!group) {
+  if (!subject) {
     return (
       <section className="detail-panel detail-empty">
         <div className="detail-empty-icon"><GroupIcon size={56} /></div>
-        <h2>Select a group</h2>
-        <p className="muted">Pick a group on the left to see its members.</p>
+        <h2>{emptyTitle}</h2>
+        <p className="muted">{emptyText}</p>
       </section>
     );
   }
@@ -53,14 +77,12 @@ export default function MemberPanel({ group, members, loading, error, onRetry }:
   return (
     <section className="detail-panel">
       <header className="detail-header">
-        <Avatar name={group.name} src={group.picture_url} kind="group" size={42} />
+        <Avatar name={subject.name} src={subject.pictureUrl} kind="group" size={42} />
         <div className="detail-title">
-          <h2>{group.name || "Unnamed group"}</h2>
-          <span className="muted small">
-            {group.participant_count} members
-            {group.topic ? ` · ${group.topic}` : ""}
-          </span>
+          <h2>{subject.name || "Unnamed group"}</h2>
+          {subject.subtitle && <span className="muted small">{subject.subtitle}</span>}
         </div>
+        {headerAction && <div className="detail-actions">{headerAction}</div>}
       </header>
 
       <div className="detail-body">
@@ -94,13 +116,14 @@ export default function MemberPanel({ group, members, loading, error, onRetry }:
                       <div className="item-row">
                         <span className="item-title">{title}</span>
                         {m.is_super_admin ? (
-                          <span className="tag accent">Owner</span>
+                          <span className="tag accent">Group owner</span>
                         ) : m.is_admin ? (
                           <span className="tag accent">Group admin</span>
                         ) : null}
                       </div>
                       {sub && <div className="item-sub muted">{sub}</div>}
                     </div>
+                    {renderMemberExtra?.(m)}
                   </li>
                 );
               })}

@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone
 
 import segno
-from neonize.proto.Neonize_pb2 import JID, ContactInfo, Device, GetProfilePictureParams
+from neonize.proto.Neonize_pb2 import JID, ContactInfo, Device, GetProfilePictureParams, GroupInfo
 from neonize.utils.jid import Jid2String
 
 from src.whatsapp import sessions
@@ -85,10 +85,23 @@ class WhatsappService:
             for g in groups
         ]
 
+    def get_group(self, client_id: str, group_id: str) -> dict:
+        s = self._connected_session(client_id)
+        info = self._group_info(s, group_id)
+        return group_to_dict(info, self._picture_url(s, info.JID, is_community=info.GroupParent.IsParent))
+
     def list_group_members(self, client_id: str, group_id: str) -> list[dict]:
         s = self._connected_session(client_id)
+        info = self._group_info(s, group_id)
+        contacts = self._contacts(s)
+        return [
+            member_to_dict(p, self._picture_url(s, p.JID), find_contact(p, contacts))
+            for p in info.Participants
+        ]
+
+    def _group_info(self, s: sessions.Session, group_id: str) -> GroupInfo:
         try:
-            info = s.client.get_group_info(group_jid(group_id))
+            return s.client.get_group_info(group_jid(group_id))
         except Exception as e:
             msg = str(e)
             if ERR_GROUP_NOT_FOUND in msg:
@@ -96,11 +109,6 @@ class WhatsappService:
             if ERR_NOT_GROUP_MEMBER in msg:
                 raise NotGroupMember() from e
             raise WhatsappRequestFailed(msg) from e
-        contacts = self._contacts(s)
-        return [
-            member_to_dict(p, self._picture_url(s, p.JID), find_contact(p, contacts))
-            for p in info.Participants
-        ]
 
     def _contacts(self, s: sessions.Session) -> dict[str, ContactInfo]:
         """The linked account's local contact store (names synced from the phone)."""

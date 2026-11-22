@@ -83,3 +83,19 @@ export function HomeIcon({ size = 22 }: IconProps) {
     </svg>
   );
 }
+
+export function BackIcon({ size = 22 }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M19 12H5M12 19l-7-7 7-7" />
+    </svg>
+  );
+}
+
+export function CheckIcon({ size = 18 }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}

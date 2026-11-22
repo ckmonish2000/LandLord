@@ -3,7 +3,7 @@ import { formatPhone } from "../format";
 import type { Account, Group } from "../types";
 import { accountLabel } from "./AccountRail";
 import Avatar from "./Avatar";
-import { RefreshIcon, SearchIcon } from "./Icons";
+import { BackIcon, RefreshIcon, SearchIcon } from "./Icons";
 
 interface Props {
   account: Account | null;
@@ -14,10 +14,25 @@ interface Props {
   onSelect: (g: Group) => void;
   onRefresh: () => void;
   onLink: () => void;
+  /** Group JIDs already added as properties (tagged "Added"). */
+  addedJids?: Set<string>;
+  /** When set, the header shows "Choose a group" with a back button. */
+  onBack?: () => void;
 }
 
 /** Middle column: the selected account's groups, with search. */
-export default function GroupList({ account, groups, loading, error, selectedJid, onSelect, onRefresh, onLink }: Props) {
+export default function GroupList({
+  account,
+  groups,
+  loading,
+  error,
+  selectedJid,
+  onSelect,
+  onRefresh,
+  onLink,
+  addedJids,
+  onBack,
+}: Props) {
   const [query, setQuery] = useState("");
 
   const visible = useMemo(() => {
@@ -30,9 +45,18 @@ export default function GroupList({ account, groups, loading, error, selectedJid
   return (
     <section className="list-panel">
       <header className="list-header">
+        {onBack && (
+          <button className="icon-btn" onClick={onBack} title="Back to properties">
+            <BackIcon />
+          </button>
+        )}
         <div className="list-title">
-          <h2>{account ? accountLabel(account) : "Landlord"}</h2>
-          {account?.phone && <span className="muted small">{formatPhone(account.phone)}</span>}
+          <h2>{onBack ? "Choose a group" : account ? accountLabel(account) : "Landlord"}</h2>
+          {onBack ? (
+            <span className="muted small">Each group is one property</span>
+          ) : (
+            account?.phone && <span className="muted small">{formatPhone(account.phone)}</span>
+          )}
         </div>
         {account && (
           <button className="icon-btn" onClick={onRefresh} title="Reload groups" disabled={loading}>
@@ -100,6 +124,7 @@ export default function GroupList({ account, groups, loading, error, selectedJid
                 <div className="item-row">
                   <span className="item-sub muted">{g.topic || `${g.participant_count} members`}</span>
                   <span className="tags">
+                    {addedJids?.has(g.jid) && <span className="tag accent">Added</span>}
                     {g.is_community && <span className="tag">Community</span>}
                     {g.is_announce && <span className="tag">Admins only</span>}
                   </span>
