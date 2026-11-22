@@ -15,5 +15,6 @@ node_modules/
 # Local env files
 .env
 
-# WhatsApp session store (device keys = account access). Also matches -wal / -shm files.
-backend/data/whatsapp.db*
+# Local data: JSON "database" (users, accounts, properties...) and the WhatsApp
+# session store (device keys = account access). Never commit.
+backend/data/
