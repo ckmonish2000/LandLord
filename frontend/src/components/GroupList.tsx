@@ -3,7 +3,8 @@ import { formatPhone } from "../format";
 import type { Account, Group } from "../types";
 import { accountLabel } from "./AccountRail";
 import Avatar from "./Avatar";
-import { BackIcon, RefreshIcon, SearchIcon } from "./Icons";
+import { BackIcon, GroupIcon, RefreshIcon, SearchIcon, WarningIcon } from "./Icons";
+import { SkeletonList } from "./Skeleton";
 
 interface Props {
   account: Account | null;
@@ -66,10 +67,10 @@ export default function GroupList({
       </header>
 
       {account && (
-        <div className="search">
-          <SearchIcon />
+        <label className="search">
+          <SearchIcon size={16} />
           <input placeholder="Search groups" value={query} onChange={(e) => setQuery(e.target.value)} />
-        </div>
+        </label>
       )}
 
       {groups && groups.length > 0 && (
@@ -82,30 +83,32 @@ export default function GroupList({
         {!account && !loading && (
           <div className="empty">
             <p>No WhatsApp account linked yet.</p>
-            <button className="btn-primary" onClick={onLink}>Link WhatsApp</button>
+            <button className="btn btn-primary" onClick={onLink}>Link WhatsApp</button>
           </div>
         )}
 
         {account && account.status !== "connected" && (
           <div className="empty">
             <p>This account was logged out from the phone.</p>
-            <button className="btn-primary" onClick={onLink}>Link again</button>
+            <button className="btn btn-primary" onClick={onLink}>Link again</button>
           </div>
         )}
 
-        {loading && (
-          <div className="empty muted">{account ? "Loading groups… this can take a moment." : "Loading…"}</div>
-        )}
+        {loading && <SkeletonList rows={8} />}
 
         {account?.status === "connected" && !loading && error && (
           <div className="empty">
+            <WarningIcon size={32} className="empty-icon danger" />
             <p className="form-error">{error}</p>
-            <button className="btn-secondary" onClick={onRefresh}>Try again</button>
+            <button className="btn btn-secondary" onClick={onRefresh}>Try again</button>
           </div>
         )}
 
         {!loading && !error && groups && visible.length === 0 && (
-          <div className="empty muted">{query ? "No groups match your search." : "This account isn't in any groups."}</div>
+          <div className="empty">
+            <GroupIcon size={32} className="empty-icon" />
+            <p className="muted">{query ? "No groups match your search." : "This account is not in any groups yet."}</p>
+          </div>
         )}
 
         {!loading &&

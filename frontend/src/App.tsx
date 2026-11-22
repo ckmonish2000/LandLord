@@ -5,7 +5,11 @@ import AuthPage from "./pages/AuthPage";
 import HomePage from "./pages/HomePage";
 
 function Splash() {
-  return <div className="splash">Loading…</div>;
+  return (
+    <div className="splash" aria-busy="true" aria-label="Loading">
+      <span className="skeleton splash-mark" />
+    </div>
+  );
 }
 
 function RequireAuth({ children }: { children: ReactNode }) {

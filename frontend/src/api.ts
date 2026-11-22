@@ -1,11 +1,11 @@
 import type {
   Account,
   Group,
-  HouseAssignment,
   HouseAssignmentInput,
   Member,
   Property,
   PropertyMember,
+  SavedAssignment,
   User,
 } from "./types";
 
@@ -95,9 +95,10 @@ export const api = {
   createProperty: (groupJid: string) =>
     json<Property>("/properties", { method: "POST", body: JSON.stringify({ group_jid: groupJid }) }),
   propertyMembers: (propertyId: string) => json<PropertyMember[]>(`/properties/${propertyId}/members`),
-  setMemberHouse: (propertyId: string, memberJid: string, house: HouseAssignmentInput) =>
-    json<HouseAssignment>(`/properties/${propertyId}/members/${encodeURIComponent(memberJid)}/house`, {
+  /** Save many members' floor / house / owner / lives here in one request. */
+  saveAssignments: (propertyId: string, assignments: HouseAssignmentInput[]) =>
+    json<SavedAssignment[]>(`/properties/${propertyId}/members/houses`, {
       method: "PUT",
-      body: JSON.stringify(house),
+      body: JSON.stringify({ assignments }),
     }),
 };

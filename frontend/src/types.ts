@@ -64,11 +64,17 @@ export interface HouseAssignment {
   lives_here: boolean;
 }
 
+/** One row sent to the bulk save. floor/number null = remove the member from their house. */
 export interface HouseAssignmentInput {
-  floor: string;
-  number: string;
+  member_jid: string;
+  floor: string | null;
+  number: string | null;
   is_owner: boolean;
   lives_here: boolean;
+}
+
+export interface SavedAssignment extends HouseAssignment {
+  member_jid: string;
 }
 
 export interface PropertyMember extends Member, HouseAssignment {}

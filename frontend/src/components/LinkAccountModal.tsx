@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, api } from "../api";
-import { CloseIcon } from "./Icons";
+import { QrIcon } from "./Icons";
+import Modal from "./Modal";
 
 const QR_REFRESH_MS = 15_000; // WhatsApp rotates the QR about every 20s
 const POLL_MS = 3_000;
@@ -59,28 +60,28 @@ export default function LinkAccountModal({ onClose, onLinked }: Props) {
   }, [onLinked]);
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="link-title" onClick={(e) => e.stopPropagation()}>
-        <button className="icon-btn modal-close" onClick={onClose} title="Close">
-          <CloseIcon />
-        </button>
-        <h2 id="link-title">Link your WhatsApp</h2>
-        <ol className="muted steps">
-          <li>Open WhatsApp on your phone</li>
-          <li>Go to Settings → Linked devices → Link a device</li>
-          <li>Point your phone at this QR code</li>
-        </ol>
-        <div className="qr-box">
-          {qrUrl ? (
-            <img src={qrUrl} alt="WhatsApp link QR code" />
-          ) : error ? (
-            <p className="form-error">{error}</p>
-          ) : (
-            <p className="muted">Generating QR…</p>
-          )}
-        </div>
-        <p className="muted small">The code refreshes automatically. This closes once you're connected.</p>
+    <Modal
+      title="Link your WhatsApp"
+      subtitle="Your groups become the properties you manage here."
+      icon={<QrIcon />}
+      onClose={onClose}
+      width="sm"
+    >
+      <ol className="steps">
+        <li>Open WhatsApp on your phone</li>
+        <li>Go to Settings, then Linked devices, then Link a device</li>
+        <li>Point your phone at this code</li>
+      </ol>
+      <div className="qr-box">
+        {qrUrl ? (
+          <img src={qrUrl} alt="WhatsApp link QR code" />
+        ) : error ? (
+          <p className="form-error">{error}</p>
+        ) : (
+          <span className="skeleton qr-skeleton" aria-label="Generating QR code" />
+        )}
       </div>
-    </div>
+      <p className="muted small center">The code refreshes on its own. This window closes once you are connected.</p>
+    </Modal>
   );
 }

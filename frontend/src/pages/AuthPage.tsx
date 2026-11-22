@@ -30,12 +30,14 @@ export default function AuthPage({ mode }: { mode: "login" | "signup" }) {
     <main className="auth-page">
       <form className="auth-card" onSubmit={onSubmit}>
         <div className="auth-brand">
-          <span className="auth-logo"><HomeIcon size={26} /></span>
+          <span className="auth-logo"><HomeIcon size={22} weight="fill" /></span>
           <span>Landlord</span>
         </div>
         <h1>{isSignup ? "Create your account" : "Welcome back"}</h1>
         <p className="muted">
-          {isSignup ? "Sign up to link your WhatsApp and manage your groups." : "Sign in to see your WhatsApp groups."}
+          {isSignup
+            ? "Link your WhatsApp and turn your building groups into properties."
+            : "Log in to manage your properties and tenants."}
         </p>
 
         {isSignup && (
@@ -63,8 +65,8 @@ export default function AuthPage({ mode }: { mode: "login" | "signup" }) {
 
         {error && <div className="form-error" role="alert">{error}</div>}
 
-        <button className="btn-primary" type="submit" disabled={busy}>
-          {busy ? "Please wait…" : isSignup ? "Sign up" : "Log in"}
+        <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
+          {busy ? (isSignup ? "Creating account" : "Logging in") : isSignup ? "Create account" : "Log in"}
         </button>
 
         <p className="auth-switch muted">

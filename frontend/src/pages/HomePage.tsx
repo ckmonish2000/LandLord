@@ -3,10 +3,10 @@ import { api } from "../api";
 import { useAuth } from "../auth";
 import AccountRail from "../components/AccountRail";
 import GroupList from "../components/GroupList";
-import HouseFields from "../components/HouseFields";
 import LinkAccountModal from "../components/LinkAccountModal";
 import MemberPanel from "../components/MemberPanel";
 import PropertyList from "../components/PropertyList";
+import PropertyPanel from "../components/PropertyPanel";
 import type { Account, Group, Member, Property, PropertyMember } from "../types";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong");
@@ -188,10 +188,10 @@ export default function HomePage() {
               <>
                 {addError && <span className="form-error small">{addError}</span>}
                 {existing ? (
-                  <button className="btn-secondary" onClick={() => openProperty(existing)}>Open property</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => openProperty(existing)}>Open property</button>
                 ) : (
-                  <button className="btn-primary" onClick={addProperty} disabled={adding}>
-                    {adding ? "Adding…" : "Add as property"}
+                  <button className="btn btn-primary btn-sm" onClick={addProperty} disabled={adding}>
+                    {adding ? "Adding" : "Add as property"}
                   </button>
                 )}
               </>
@@ -199,30 +199,38 @@ export default function HomePage() {
           }
         />
       ) : (
-        <MemberPanel<PropertyMember>
-          subject={
-            property && {
-              name: property.name,
-              subtitle: "Enter each member's floor and house number",
+        property ? (
+          <PropertyPanel
+            key={property.id}
+            property={property}
+            members={propertyMembers.data}
+            loading={propertyMembers.loading}
+            error={propertyMembers.error}
+            onRetry={propertyMembers.reload}
+            onSaved={(saved) =>
+              propertyMembers.setData((list) =>
+                list?.map((m) => {
+                  const s = saved.find((a) => a.member_jid === m.jid);
+                  return s ? { ...m, house: s.house, is_owner: s.is_owner, lives_here: s.lives_here } : m;
+                }) ?? null,
+              )
             }
-          }
-          members={propertyMembers.data}
-          loading={propertyMembers.loading}
-          error={propertyMembers.error}
-          onRetry={propertyMembers.reload}
-          emptyTitle={properties.data?.length ? "Select a property" : "Add your first property"}
-          emptyText={
-            properties.data?.length
-              ? "Pick a property on the left to see its members and houses."
-              : "Each property is a WhatsApp group. Add one to record who lives where."
-          }
-          renderMemberExtra={(m) => (
-            <HouseFields
-              assignment={m}
-              onSave={(value) => api.setMemberHouse(property!.id, m.jid, value)}
-            />
-          )}
-        />
+          />
+        ) : (
+          <MemberPanel
+            subject={null}
+            members={null}
+            loading={false}
+            error={null}
+            onRetry={() => {}}
+            emptyTitle={properties.data?.length ? "Select a property" : "Add your first property"}
+            emptyText={
+              properties.data?.length
+                ? "Pick a property on the left to record who owns and lives in each house."
+                : "Each property is one of your WhatsApp groups. Add one to record who lives where."
+            }
+          />
+        )
       )}
 
       {linking && <LinkAccountModal onClose={() => setLinking(false)} onLinked={onLinked} />}

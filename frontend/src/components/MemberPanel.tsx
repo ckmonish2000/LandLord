@@ -2,7 +2,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import { formatPhone } from "../format";
 import type { Member } from "../types";
 import Avatar from "./Avatar";
-import { GroupIcon, SearchIcon } from "./Icons";
+import { GroupIcon, SearchIcon, WarningIcon } from "./Icons";
+import { SkeletonList } from "./Skeleton";
 
 /** What the panel header shows: a group, or a property (which is a group). */
 export interface PanelSubject {
@@ -31,7 +32,7 @@ export function memberTitle(m: Member): string {
   return m.saved_name || formatPhone(m.phone) || m.push_name || "Hidden number";
 }
 
-function memberSubtitle(m: Member): string | null {
+export function memberSubtitle(m: Member): string | null {
   if (m.saved_name) return m.push_name ? `~ ${m.push_name}` : formatPhone(m.phone);
   if (m.phone && m.push_name) return `~ ${m.push_name}`;
   return m.business_name;
@@ -67,7 +68,7 @@ export default function MemberPanel<M extends Member>({
   if (!subject) {
     return (
       <section className="detail-panel detail-empty">
-        <div className="detail-empty-icon"><GroupIcon size={56} /></div>
+        <div className="detail-empty-icon"><GroupIcon size={40} /></div>
         <h2>{emptyTitle}</h2>
         <p className="muted">{emptyText}</p>
       </section>
@@ -77,7 +78,7 @@ export default function MemberPanel<M extends Member>({
   return (
     <section className="detail-panel">
       <header className="detail-header">
-        <Avatar name={subject.name} src={subject.pictureUrl} kind="group" size={42} />
+        <Avatar name={subject.name} src={subject.pictureUrl} kind="group" size={40} />
         <div className="detail-title">
           <h2>{subject.name || "Unnamed group"}</h2>
           {subject.subtitle && <span className="muted small">{subject.subtitle}</span>}
@@ -86,17 +87,18 @@ export default function MemberPanel<M extends Member>({
       </header>
 
       <div className="detail-body">
-        <div className="search">
-          <SearchIcon />
+        <label className="search">
+          <SearchIcon size={16} />
           <input placeholder="Search members" value={query} onChange={(e) => setQuery(e.target.value)} />
-        </div>
+        </label>
 
-        {loading && <div className="empty muted">Loading members…</div>}
+        {loading && <SkeletonList rows={7} />}
 
         {!loading && error && (
           <div className="empty">
+            <WarningIcon size={32} className="empty-icon danger" />
             <p className="form-error">{error}</p>
-            <button className="btn-secondary" onClick={onRetry}>Try again</button>
+            <button className="btn btn-secondary" onClick={onRetry}>Try again</button>
           </div>
         )}
 
