@@ -3,7 +3,7 @@ from collections.abc import Iterable
 from neonize.proto.Neonize_pb2 import JID, Contact, ContactInfo, GroupInfo, GroupParticipant
 from neonize.utils.jid import Jid2String
 
-from src.whatsapp.constants import GROUP_SERVER
+from src.whatsapp.constants import GROUP_SERVER, USER_SERVER
 
 
 def format_agent_reply(signature: str, body: str) -> str:
@@ -22,6 +22,22 @@ def group_jid(group_id: str) -> JID:
     """'120363...@g.us' or '120363...' -> group JID."""
     user = group_id.split("@", 1)[0]
     return JID(User=user, Server=GROUP_SERVER, Device=0, RawAgent=0, Integrator=0, IsEmpty=False)
+
+
+def to_jid(value: str | JID) -> JID:
+    """'919876543210', '919876543210@s.whatsapp.net', '120363...@g.us' or '123...@lid' -> JID.
+    A bare number is treated as a phone number. JIDs are returned unchanged."""
+    if isinstance(value, JID):
+        return value
+    user, _, server = value.partition("@")
+    return JID(
+        User=user,
+        Server=server or USER_SERVER,
+        Device=0,
+        RawAgent=0,
+        Integrator=0,
+        IsEmpty=False,
+    )
 
 
 def _key(jid: JID) -> str:

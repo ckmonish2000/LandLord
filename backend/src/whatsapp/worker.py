@@ -31,6 +31,7 @@ from src.whatsapp.constants import (
     RequestStatus,
 )
 from src.whatsapp.repository import AgentRequestRepository
+from src.whatsapp.sender import WhatsappSender
 from src.whatsapp.utils import format_agent_reply
 
 log = logging.getLogger(__name__)
@@ -48,10 +49,8 @@ class MessageTask:
 
     request_id: str  # id of the agent request record
     client_id: str
-    client: NewClient
-    event: MessageEv  # original message, used to quote it in the reply
-    chat: JID
-    sender: JID
+    sender: WhatsappSender  # sends on the account that received the message
+    event: MessageEv  # original message, used to quote it in the reply and react to it
     message_id: str
     prompt: str
 
@@ -86,10 +85,8 @@ class MessageHandler:
         task = MessageTask(
             request_id=record["id"],
             client_id=client_id,
-            client=client,
+            sender=WhatsappSender(client),
             event=event,
-            chat=source.Chat,
-            sender=source.Sender,
             message_id=event.Info.ID,
             prompt=prompt,
         )
@@ -110,7 +107,7 @@ class MessageHandler:
         """Runs on a worker thread."""
         try:
             response = format_agent_reply(self.agent.signature, self.agent.run(task.prompt))
-            task.client.reply_message(response, task.event)
+            task.sender.text(task.event.Info.MessageSource.Chat, response, reply_to=task.event)
         except Exception as e:
             log.exception("%s failed on message %s", self.agent.name, task.message_id)
             self._react(task, REACTION_FAILED)
@@ -131,10 +128,7 @@ class MessageHandler:
     def _react(self, task: MessageTask, emoji: str) -> None:
         """Set our reaction on the original message. Never raises."""
         try:
-            task.client.send_message(
-                task.chat,
-                task.client.build_reaction(task.chat, task.sender, task.message_id, emoji),
-            )
+            task.sender.react_to(task.event, emoji)
         except Exception:
             log.exception("could not react %s on message %s", emoji, task.message_id)
 

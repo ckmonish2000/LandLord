@@ -15,6 +15,7 @@ REACTION_DONE = "✅"
 REACTION_FAILED = "❌"
 
 GROUP_SERVER = "g.us"
+USER_SERVER = "s.whatsapp.net"  # phone number accounts
 # 120363012345678901, old-style 919876543210-1612345678, optionally ending in @g.us
 GROUP_ID_PATTERN = r"^\d+(-\d+)?(@g\.us)?$"
 
@@ -26,3 +27,7 @@ ERR_NOT_GROUP_MEMBER = "you're not participating in that group"
 class AccountStatus:
     CONNECTED = "connected"
     LOGGED_OUT = "logged_out"
+
+# WhatsApp's limits for polls
+POLL_MIN_OPTIONS = 2
+POLL_MAX_OPTIONS = 12
