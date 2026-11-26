@@ -9,7 +9,7 @@ ENV_FILE = BASE_DIR / ".env"
 
 
 class Config(BaseSettings):
-    model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
+    model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore", env_ignore_empty=True)
 
     DATA_DIR: Path = BASE_DIR / "data"
 

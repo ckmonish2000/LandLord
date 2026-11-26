@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class BillRequest(BaseModel):
@@ -11,3 +11,9 @@ class BillRequest(BaseModel):
     property_hint: str | None = Field(
         None, description="The property, building or area named in the message, exactly as written, e.g. 'vidyaranyapura'"
     )
+
+    @field_validator("item", "property_hint", mode="before")
+    @classmethod
+    def blank_is_missing(cls, v):
+        """Small models often answer "" instead of null."""
+        return v.strip() or None if isinstance(v, str) else v

@@ -5,11 +5,16 @@ class RequestStatus:
     """Status of an agent request record."""
 
     PROCESSING = "processing"
+    WAITING = "waiting"  # the agent asked the landlord something and is paused
     DONE = "done"
+    CANCELLED = "cancelled"
     FAILED = "failed"
 
 
 WORKER_MAX_THREADS = 4
+# Each tap on a multi-select poll arrives as its own vote. Wait this long after the
+# last tap before treating the selection as final.
+POLL_SETTLE_SECONDS = 6
 REACTION_RECEIVED = "👁️"
 REACTION_DONE = "✅"
 REACTION_FAILED = "❌"
@@ -31,3 +36,5 @@ class AccountStatus:
 # WhatsApp's limits for polls
 POLL_MIN_OPTIONS = 2
 POLL_MAX_OPTIONS = 12
+LIST_MAX_ROWS = 10  # rows in one interactive list
+BUTTONS_MAX = 3  # reply buttons in one message

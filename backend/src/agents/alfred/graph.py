@@ -1,11 +1,14 @@
-"""Alfred as a supervisor: a router node picks a sub-agent, the sub-agent returns
+"""Alfred as a supervisor: a router node picks a sub-agent, the sub-agent produces
 the reply, and the graph ends.
 
-    START → route ─┬─ bill_split → END
-                   └─ general    → END
+    START → route ─┬─ bill_split (subgraph, may pause for answers) → END
+                   └─ general → END
+
+Compiled with a checkpointer so a sub-agent can pause (interrupt) and be resumed
+later on the same thread_id.
 
 To add a sub-agent: add a route in constants/schemas, describe it in ROUTER_PROMPT,
-add a node here and an entry in ROUTES.
+and add its node to ROUTES.
 """
 
 from functools import lru_cache
@@ -17,7 +20,9 @@ from langgraph.graph.state import CompiledStateGraph
 from src.agents.alfred.constants import HELP, ROUTE_BILL_SPLIT, ROUTE_GENERAL
 from src.agents.alfred.prompts import ROUTER_PROMPT
 from src.agents.alfred.schemas import AlfredState, RouteDecision
-from src.agents.bill_split.agent import BillSplitAgent
+from src.agents.base import AgentContext
+from src.agents.bill_split.graph import build_graph as build_bill_split
+from src.agents.checkpoint import get_checkpointer
 from src.llm import get_llm
 
 
@@ -28,25 +33,22 @@ def route(state: AlfredState) -> AlfredState:
     return {"route": decision.route}
 
 
-def bill_split(state: AlfredState) -> AlfredState:
-    return {"reply": BillSplitAgent().run(state["prompt"])}
-
-
 def general(state: AlfredState) -> AlfredState:
-    return {"reply": HELP}
-
-
-ROUTES = {ROUTE_BILL_SPLIT: bill_split, ROUTE_GENERAL: general}
+    return {"reply": HELP, "outcome": "done"}
 
 
 @lru_cache
 def build_graph() -> CompiledStateGraph:
     """Compiled once and shared; safe to invoke from several worker threads."""
-    graph = StateGraph(AlfredState)
+    routes = {
+        ROUTE_BILL_SPLIT: build_bill_split().compile(),  # inherits the checkpointer
+        ROUTE_GENERAL: general,
+    }
+    graph = StateGraph(AlfredState, context_schema=AgentContext)
     graph.add_node("route", route)
-    for name, node in ROUTES.items():
+    for name, node in routes.items():
         graph.add_node(name, node)
         graph.add_edge(name, END)
     graph.add_edge(START, "route")
-    graph.add_conditional_edges("route", lambda s: s["route"], list(ROUTES))
-    return graph.compile()
+    graph.add_conditional_edges("route", lambda s: s["route"], list(routes))
+    return graph.compile(checkpointer=get_checkpointer())

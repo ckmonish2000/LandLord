@@ -14,18 +14,29 @@ Every send returns the WhatsApp message id. Failures raise WhatsappRequestFailed
 """
 
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from neonize.client import NewClient
 from neonize.events import MessageEv
+from neonize.ext.interactive_message import ButtonMessage
 from neonize.proto.Neonize_pb2 import JID, SendResponse
 from neonize.utils.enum import VoteType
 
-from src.whatsapp.constants import POLL_MAX_OPTIONS, POLL_MIN_OPTIONS
+from src.whatsapp.constants import BUTTONS_MAX, LIST_MAX_ROWS, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS
 from src.whatsapp.exceptions import WhatsappRequestFailed
 from src.whatsapp.utils import to_jid
 
 Recipient = str | JID
 Media = bytes | str  # file contents, or a local path / URL
+
+
+@dataclass(frozen=True)
+class Choice:
+    """One row of a list or one reply button. `id` comes back when the user taps it."""
+
+    id: str
+    title: str
+    description: str = ""
 
 
 class WhatsappSender:
@@ -115,6 +126,38 @@ class WhatsappSender:
             return self.client.send_message(to_jid(to), message)
 
         return self._send(send)
+
+    def list_message(
+        self,
+        to: Recipient,
+        body: str,
+        button_text: str,
+        rows: list[Choice],
+        section_title: str = "",
+        footer: str | None = None,
+    ) -> str:
+        """A message with a button that opens a list; the user picks one row.
+        The reply arrives as an interactiveResponseMessage carrying the row id."""
+        if not 1 <= len(rows) <= LIST_MAX_ROWS:
+            raise ValueError(f"a list needs 1 to {LIST_MAX_ROWS} rows")
+        message = ButtonMessage().set_body(body).add_selection(button_text).add_section(section_title)
+        for row in rows:
+            message.add_row(row.title, description=row.description, id=row.id)
+        if footer:
+            message.set_footer(footer)
+        return self._send(lambda: self.client.send_interactive_message(to_jid(to), message))
+
+    def buttons(self, to: Recipient, body: str, buttons: list[Choice], footer: str | None = None) -> str:
+        """A message with up to 3 quick reply buttons. The tap arrives as an
+        interactiveResponseMessage carrying the button id."""
+        if not 1 <= len(buttons) <= BUTTONS_MAX:
+            raise ValueError(f"a message needs 1 to {BUTTONS_MAX} buttons")
+        message = ButtonMessage().set_body(body)
+        for button in buttons:
+            message.add_reply(button.title, button.id)
+        if footer:
+            message.set_footer(footer)
+        return self._send(lambda: self.client.send_interactive_message(to_jid(to), message))
 
     def react(self, chat: Recipient, sender: Recipient, message_id: str, emoji: str) -> str:
         """React to a message. Our new reaction replaces our previous one; emoji="" removes it."""

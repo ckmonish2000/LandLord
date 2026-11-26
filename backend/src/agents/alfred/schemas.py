@@ -20,3 +20,4 @@ class AlfredState(TypedDict, total=False):
     prompt: str  # the landlord's message
     route: Route  # set by the router node
     reply: str  # set by whichever node handled the message
+    outcome: str  # how the run ended: done | cancelled

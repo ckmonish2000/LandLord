@@ -90,12 +90,13 @@ class WhatsappService:
         info = self._group_info(s, group_id)
         return group_to_dict(info, self._picture_url(s, info.JID, is_community=info.GroupParent.IsParent))
 
-    def list_group_members(self, client_id: str, group_id: str) -> list[dict]:
+    def list_group_members(self, client_id: str, group_id: str, pictures: bool = True) -> list[dict]:
+        """pictures=False skips one profile picture request per member (much faster)."""
         s = self._connected_session(client_id)
         info = self._group_info(s, group_id)
         contacts = self._contacts(s)
         return [
-            member_to_dict(p, self._picture_url(s, p.JID), find_contact(p, contacts))
+            member_to_dict(p, self._picture_url(s, p.JID) if pictures else None, find_contact(p, contacts))
             for p in info.Participants
         ]
 
