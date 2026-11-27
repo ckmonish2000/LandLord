@@ -24,8 +24,6 @@ from langgraph.types import Command, interrupt
 
 from src.agents.base import AgentContext, Option
 from src.agents.bill_split import messages
-from src.agents.bill_split.extract import extract_bill
-from src.agents.bill_split.utils import as_poll_members
 from src.agents.bill_split.constants import (
     ALL_OPTION,
     CONFIRM_NO,
@@ -34,7 +32,9 @@ from src.agents.bill_split.constants import (
     MEMBERS_PER_POLL,
     PROPERTY_LIST_MAX,
 )
+from src.agents.bill_split.extract import extract_bill
 from src.agents.bill_split.state import BillSplitState
+from src.agents.bill_split.utils import as_poll_members
 from src.bills.utils import to_paise
 from src.tools import bills as bill_tools
 from src.tools import properties as property_tools
@@ -43,6 +43,7 @@ Ctx = Runtime[AgentContext]
 
 
 # ---- 1. understand the request ----
+
 
 def extract(state: BillSplitState) -> Command:
     request = extract_bill(state["prompt"])
@@ -58,6 +59,7 @@ def extract(state: BillSplitState) -> Command:
 
 
 # ---- 2. which property ----
+
 
 def resolve_property(state: BillSplitState, runtime: Ctx) -> Command:
     client_id = runtime.context.client_id
@@ -93,6 +95,7 @@ def wait_property(state: BillSplitState) -> Command:
 
 # ---- 3. who shares it ----
 
+
 def load_members(state: BillSplitState, runtime: Ctx) -> Command:
     ctx = runtime.context
     contacts = property_tools.list_member_contacts(ctx.client_id, state["property"]["id"], ctx.channel.owner_ids)
@@ -108,8 +111,8 @@ def ask_members(state: BillSplitState, runtime: Ctx) -> dict:
     the first one also offers ALL_OPTION)."""
     names = [m["name"] for m in state["members"]]
     chunks = [[ALL_OPTION, *names[: MEMBERS_PER_POLL - 1]]]
-    rest = names[MEMBERS_PER_POLL - 1:]
-    chunks += [rest[i: i + MEMBERS_PER_POLL] for i in range(0, len(rest), MEMBERS_PER_POLL)]
+    rest = names[MEMBERS_PER_POLL - 1 :]
+    chunks += [rest[i : i + MEMBERS_PER_POLL] for i in range(0, len(rest), MEMBERS_PER_POLL)]
     if len(chunks[-1]) == 1 and len(chunks) > 1:  # a poll needs 2 options: move one over
         chunks[-1].insert(0, chunks[-2].pop())
 
@@ -139,6 +142,7 @@ def wait_members(state: BillSplitState) -> Command:
 
 
 # ---- 4. the split and the confirmation ----
+
 
 def compute(state: BillSplitState) -> dict:
     chosen = set(state["selected"])
@@ -171,6 +175,7 @@ def wait_confirm(state: BillSplitState) -> Command:
 
 # ---- 5. send it ----
 
+
 def deliver(state: BillSplitState, runtime: Ctx, config: RunnableConfig) -> dict:
     """Message the group, then each person. Each share's delivery is saved as it
     goes, so if this node is retried nobody is messaged twice."""
@@ -179,8 +184,13 @@ def deliver(state: BillSplitState, runtime: Ctx, config: RunnableConfig) -> dict
     thread_id = config["configurable"]["thread_id"]
 
     record = bill_tools.get_bill_for_thread(thread_id) or bill_tools.record_bill(
-        ctx.client_id, prop["id"], bill.get("item"), bill["currency"], bill["total_paise"],
-        state["shares"], thread_id,
+        ctx.client_id,
+        prop["id"],
+        bill.get("item"),
+        bill["currency"],
+        bill["total_paise"],
+        state["shares"],
+        thread_id,
     )
 
     group_ok = record.get("group_delivery") == "sent"
@@ -215,8 +225,17 @@ def build_graph() -> StateGraph:
     """Uncompiled; Alfred adds it as a node and compiles it with the checkpointer."""
     graph = StateGraph(BillSplitState, context_schema=AgentContext)
     for node in (
-        extract, resolve_property, ask_property, wait_property, load_members, ask_members,
-        wait_members, compute, ask_confirm, wait_confirm, deliver,
+        extract,
+        resolve_property,
+        ask_property,
+        wait_property,
+        load_members,
+        ask_members,
+        wait_members,
+        compute,
+        ask_confirm,
+        wait_confirm,
+        deliver,
     ):
         graph.add_node(node)
     graph.add_edge(START, "extract")

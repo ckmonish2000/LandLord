@@ -6,6 +6,7 @@ import segno
 from neonize.proto.Neonize_pb2 import JID, ContactInfo, Device, GetProfilePictureParams, GroupInfo
 from neonize.utils.jid import Jid2String
 
+from src.utils import now_iso
 from src.whatsapp import sessions
 from src.whatsapp.constants import (
     CONNECT_WAIT_SECONDS,
@@ -23,7 +24,6 @@ from src.whatsapp.exceptions import (
     WhatsappRequestFailed,
 )
 from src.whatsapp.repository import WhatsappAccountRepository
-from src.utils import now_iso
 from src.whatsapp.utils import (
     contacts_by_jid,
     find_contact,
@@ -67,8 +67,17 @@ class WhatsappService:
         account = self.repository.get_by_client_id(client_id)
         if not account:
             return []
-        fields = ("id", "jid", "phone", "push_name", "business_name", "platform",
-                  "status", "linked_at", "last_connected_at")
+        fields = (
+            "id",
+            "jid",
+            "phone",
+            "push_name",
+            "business_name",
+            "platform",
+            "status",
+            "linked_at",
+            "last_connected_at",
+        )
         return [{f: account.get(f) or None for f in fields}]
 
     # ---- groups ----
@@ -79,10 +88,7 @@ class WhatsappService:
             groups = s.client.get_joined_groups()
         except Exception as e:
             raise WhatsappRequestFailed(str(e)) from e
-        return [
-            group_to_dict(g, self._picture_url(s, g.JID, is_community=g.GroupParent.IsParent))
-            for g in groups
-        ]
+        return [group_to_dict(g, self._picture_url(s, g.JID, is_community=g.GroupParent.IsParent)) for g in groups]
 
     def get_group(self, client_id: str, group_id: str) -> dict:
         s = self._connected_session(client_id)
@@ -158,9 +164,7 @@ class WhatsappService:
                 Integrator=0,
                 IsEmpty=False,
             )
-        return sessions.get_or_start(
-            client_id, jid, self._on_connected, self._on_logged_out, self.worker.on_message
-        )
+        return sessions.get_or_start(client_id, jid, self._on_connected, self._on_logged_out, self.worker.on_message)
 
     def _session_awaiting_pairing(self, client_id: str) -> sessions.Session:
         """Start (or reuse) the user's session and wait until WhatsApp is ready to pair."""
@@ -187,19 +191,22 @@ class WhatsappService:
     def _on_connected(self, client_id: str, me: Device) -> None:
         now = now_iso()
         existing = self.repository.get_by_client_id(client_id)
-        self.repository.save(client_id, {
-            "jid": Jid2String(me.JID),
-            "phone": me.JID.User,
-            "server": me.JID.Server,
-            "device": me.JID.Device,
-            "lid": Jid2String(me.LID) if me.LID.User else None,
-            "push_name": me.PushName,
-            "business_name": me.BussinessName,
-            "platform": me.Platform,
-            "status": AccountStatus.CONNECTED,
-            "linked_at": (existing or {}).get("linked_at") or now,
-            "last_connected_at": now,
-        })
+        self.repository.save(
+            client_id,
+            {
+                "jid": Jid2String(me.JID),
+                "phone": me.JID.User,
+                "server": me.JID.Server,
+                "device": me.JID.Device,
+                "lid": Jid2String(me.LID) if me.LID.User else None,
+                "push_name": me.PushName,
+                "business_name": me.BussinessName,
+                "platform": me.Platform,
+                "status": AccountStatus.CONNECTED,
+                "linked_at": (existing or {}).get("linked_at") or now,
+                "last_connected_at": now,
+            },
+        )
         log.info("whatsapp connected for %s as %s", client_id, me.JID.User)
 
     def _on_logged_out(self, client_id: str, reason: int) -> None:

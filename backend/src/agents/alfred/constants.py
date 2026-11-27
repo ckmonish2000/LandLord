@@ -11,6 +11,7 @@ HELP = (
     "_1000rs water tank for Vidyaranyapura, split it_"
 )
 
+
 class Route(StrEnum):
     """Where the router can send a message: one value per sub-agent. The values are
     what the LLM answers with and the names of the graph's nodes."""

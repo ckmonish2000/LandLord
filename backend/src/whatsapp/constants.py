@@ -15,6 +15,7 @@ class AccountStatus:
     CONNECTED = "connected"
     LOGGED_OUT = "logged_out"
 
+
 # WhatsApp's limits for polls
 POLL_MIN_OPTIONS = 2
 POLL_MAX_OPTIONS = 12

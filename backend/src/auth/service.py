@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 
@@ -17,19 +17,21 @@ class AuthService:
         email = email.lower()
         if self.repository.get_by_email(email):
             raise EmailTaken()
-        user = self.repository.create({
-            "email": email,
-            "name": name,
-            "password_hash": hash_password(password),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
+        user = self.repository.create(
+            {
+                "email": email,
+                "name": name,
+                "password_hash": hash_password(password),
+                "created_at": datetime.now(UTC).isoformat(),
+            }
+        )
         return public_user(user)
 
     def signin(self, email: str, password: str) -> str:
         user = self.repository.get_by_email(email.lower())
         if not user or not verify_password(password, user["password_hash"]):
             raise InvalidCredentials()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "sub": user["id"],
             "iat": now,

@@ -26,9 +26,7 @@ class WhatsappChannel:
         return self.sender.text(to, body)  # to residents / groups: from the landlord, no signature
 
     def ask_choice(self, body: str, button_text: str, options: list[Option]) -> str:
-        rows = [
-            Choice(o.id, o.title[:LIST_ROW_TITLE_MAX], o.description[:LIST_ROW_DESCRIPTION_MAX]) for o in options
-        ]
+        rows = [Choice(o.id, o.title[:LIST_ROW_TITLE_MAX], o.description[:LIST_ROW_DESCRIPTION_MAX]) for o in options]
         return self.sender.list_message(self.chat, format_agent_reply(self.signature, body), button_text, rows)
 
     def ask_buttons(self, body: str, options: list[Option]) -> str:

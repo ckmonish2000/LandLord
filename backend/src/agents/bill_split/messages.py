@@ -45,13 +45,15 @@ def confirm(bill: dict, property_name: str, shares: list[dict]) -> str:
 def group_notice(bill: dict, shares: list[dict]) -> str:
     total = format_money(bill["total_paise"], bill["currency"])
     item = (bill.get("item") or "shared bill").capitalize()
-    return "\n".join([
-        f"🧾 *{item}*: {total}",
-        f"Split between {len(shares)}:",
-        *[f"• {s['name']}: {format_money(s['amount_paise'], bill['currency'])}" for s in shares],
-        "",
-        "Each person has also been sent their share personally.",
-    ])
+    return "\n".join(
+        [
+            f"🧾 *{item}*: {total}",
+            f"Split between {len(shares)}:",
+            *[f"• {s['name']}: {format_money(s['amount_paise'], bill['currency'])}" for s in shares],
+            "",
+            "Each person has also been sent their share personally.",
+        ]
+    )
 
 
 def personal_notice(bill: dict, property_name: str, share: dict, people: int) -> str:

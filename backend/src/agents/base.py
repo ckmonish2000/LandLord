@@ -8,7 +8,7 @@ run is resumed later with the landlord's answer, using the same thread_id.
 """
 
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol, TypedDict
+from typing import Literal, Protocol, TypedDict
 
 
 @dataclass(frozen=True)

@@ -14,3 +14,32 @@ dependencies = [
     "pydantic-settings>=2.16.3",
     "pyjwt>=2.15.1",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17.6",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle: errors and warnings
+    "F",       # pyflakes: unused imports / variables, undefined names
+    "I",       # import order
+    "B",       # bugbear: common bugs
+    "UP",      # pyupgrade: modern Python syntax
+    "SIM",     # simplify: shorter equivalent code
+]
+ignore = [
+    "E501",  # line too long: the formatter handles length; long prompt strings stay as written
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI declares dependencies as default arguments; these calls are meant to be there.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Path", "fastapi.Query", "fastapi.Body"]

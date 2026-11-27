@@ -7,10 +7,10 @@ from src.properties.dependencies import get_property_service
 from src.properties.exceptions import PropertyExists, PropertyNotFound
 from src.properties.schemas import (
     CreatePropertyRequest,
-    SaveAssignmentsRequest,
-    SavedAssignmentResponse,
     PropertyMemberResponse,
     PropertyResponse,
+    SaveAssignmentsRequest,
+    SavedAssignmentResponse,
 )
 from src.properties.service import PropertyService
 from src.whatsapp.router.errors import whatsapp_http_errors
@@ -35,8 +35,8 @@ def create_property(
     try:
         with whatsapp_http_errors():
             return service.create_property(user["id"], body.group_jid)
-    except PropertyExists:
-        raise HTTPException(409, "This group is already a property")
+    except PropertyExists as e:
+        raise HTTPException(409, "This group is already a property") from e
 
 
 @router.get("/{property_id}/members", response_model=list[PropertyMemberResponse])
@@ -48,8 +48,8 @@ def list_members(
     try:
         with whatsapp_http_errors():
             return service.list_members(user["id"], property_id)
-    except PropertyNotFound:
-        raise HTTPException(404, "Property not found")
+    except PropertyNotFound as e:
+        raise HTTPException(404, "Property not found") from e
 
 
 @router.put("/{property_id}/members/houses", response_model=list[SavedAssignmentResponse])
@@ -62,5 +62,5 @@ def save_assignments(
     """Save the floor, house number, owner and lives-here of several members in one go."""
     try:
         return service.save_assignments(user["id"], property_id, body.assignments)
-    except PropertyNotFound:
-        raise HTTPException(404, "Property not found")
+    except PropertyNotFound as e:
+        raise HTTPException(404, "Property not found") from e

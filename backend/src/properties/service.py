@@ -1,9 +1,9 @@
 from src.properties.exceptions import PropertyExists, PropertyNotFound
-from src.properties.schemas import HouseAssignmentItem
 from src.properties.repository import HouseMemberRepository, HouseRepository, PropertyRepository
+from src.properties.schemas import HouseAssignmentItem
 from src.properties.utils import member_chat_jid, member_display_name, member_user_ids, name_matches
-from src.whatsapp.service import WhatsappService
 from src.utils import now_iso
+from src.whatsapp.service import WhatsappService
 
 
 def _assignment(link: dict | None, houses: dict[str, dict]) -> dict:
@@ -42,12 +42,14 @@ class PropertyService:
         group = self.whatsapp.get_group(client_id, group_id)  # also checks it exists and we're in it
         if self.properties.find(client_id=client_id, group_jid=group["jid"]):
             raise PropertyExists()
-        return self.properties.create({
-            "client_id": client_id,
-            "group_jid": group["jid"],
-            "name": group["name"],
-            "created_at": now_iso(),
-        })
+        return self.properties.create(
+            {
+                "client_id": client_id,
+                "group_jid": group["jid"],
+                "name": group["name"],
+                "created_at": now_iso(),
+            }
+        )
 
     def list_members(self, client_id: str, property_id: str, pictures: bool = True) -> list[dict]:
         """The group's current members, each with their house (or None) and whether they own / live in it."""
@@ -88,12 +90,15 @@ class PropertyService:
                 house = self.houses.upsert_where(
                     {"property_id": prop["id"], "floor": item.floor, "number": item.number}, {}
                 )
-            link = self.house_members.upsert_where(match, {
-                "house_id": house["id"] if house else None,
-                "is_owner": item.is_owner,
-                "lives_here": item.lives_here,
-                "updated_at": now_iso(),
-            })
+            link = self.house_members.upsert_where(
+                match,
+                {
+                    "house_id": house["id"] if house else None,
+                    "is_owner": item.is_owner,
+                    "lives_here": item.lives_here,
+                    "updated_at": now_iso(),
+                },
+            )
             houses = {house["id"]: house} if house else {}
             saved.append({"member_jid": item.member_jid, **_assignment(link, houses)})
         return saved

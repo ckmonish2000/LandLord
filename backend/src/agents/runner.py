@@ -16,6 +16,7 @@ from src.agents.constants import ConversationStatus
 from src.agents.repository import ConversationRepository
 from src.utils import now_iso
 
+
 class ConversationRunner:
     def __init__(self, agent: Agent, conversations: ConversationRepository):
         self.agent = agent
@@ -29,21 +30,24 @@ class ConversationRunner:
         Done before any slow work, so even a failure on the way is in the history."""
         thread_id = str(uuid.uuid4())
         now = now_iso()
-        self.conversations.save(thread_id, {
-            "client_id": client_id,
-            "agent": self.agent.name,
-            "prompt": prompt,
-            "response": None,
-            "status": ConversationStatus.RUNNING,
-            "stage": None,
-            "error": None,
-            "waiting": None,
-            "votes": {},
-            "prompt_ref": prompt_ref,
-            "created_at": now,
-            "updated_at": now,
-            "completed_at": None,
-        })
+        self.conversations.save(
+            thread_id,
+            {
+                "client_id": client_id,
+                "agent": self.agent.name,
+                "prompt": prompt,
+                "response": None,
+                "status": ConversationStatus.RUNNING,
+                "stage": None,
+                "error": None,
+                "waiting": None,
+                "votes": {},
+                "prompt_ref": prompt_ref,
+                "created_at": now,
+                "updated_at": now,
+                "completed_at": None,
+            },
+        )
         return thread_id
 
     def start(self, thread_id: str, prompt: str, ctx: AgentContext) -> AgentResult:
@@ -78,13 +82,16 @@ class ConversationRunner:
     def mark_failed(self, thread_id: str, error: Exception | str) -> None:
         """For failures outside the agent, e.g. the reply could not be sent."""
         now = now_iso()
-        self.conversations.save(thread_id, {
-            "status": ConversationStatus.FAILED,
-            "error": str(error),
-            "waiting": None,
-            "updated_at": now,
-            "completed_at": now,
-        })
+        self.conversations.save(
+            thread_id,
+            {
+                "status": ConversationStatus.FAILED,
+                "error": str(error),
+                "waiting": None,
+                "updated_at": now,
+                "completed_at": now,
+            },
+        )
 
     def _lock(self, thread_id: str) -> threading.Lock:
         with self._locks_guard:

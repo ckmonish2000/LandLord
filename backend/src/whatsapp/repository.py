@@ -12,4 +12,3 @@ class WhatsappAccountRepository(JsonCollection):
 
     def save(self, client_id: str, fields: dict) -> dict:
         return self.upsert("client_id", client_id, fields)
-

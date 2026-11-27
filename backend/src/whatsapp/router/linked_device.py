@@ -18,10 +18,10 @@ def get_qr(
 ):
     try:
         png = service.get_qr_png(user["id"])
-    except AlreadyLinked:
-        raise HTTPException(409, "WhatsApp is already linked for this user")
+    except AlreadyLinked as e:
+        raise HTTPException(409, "WhatsApp is already linked for this user") from e
     except NotReady as e:
-        raise HTTPException(503, str(e))
+        raise HTTPException(503, str(e)) from e
     return Response(png, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
@@ -33,8 +33,8 @@ def generate_pair_code(
 ):
     try:
         code = service.generate_pair_code(user["id"], body.phone)
-    except AlreadyLinked:
-        raise HTTPException(409, "WhatsApp is already linked for this user")
+    except AlreadyLinked as e:
+        raise HTTPException(409, "WhatsApp is already linked for this user") from e
     except NotReady as e:
-        raise HTTPException(503, str(e))
+        raise HTTPException(503, str(e)) from e
     return {"code": code}

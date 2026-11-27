@@ -19,5 +19,5 @@ def get_current_user(
     """Use as a dependency on any route that needs a signed-in user."""
     try:
         return service.user_from_token(creds.credentials)
-    except InvalidToken:
-        raise HTTPException(401, "Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    except InvalidToken as e:
+        raise HTTPException(401, "Invalid or expired token", headers={"WWW-Authenticate": "Bearer"}) from e
