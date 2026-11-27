@@ -1,16 +1,6 @@
 QR_WAIT_SECONDS = 15  # how long to wait for WhatsApp to send the first QR
 CONNECT_WAIT_SECONDS = 15  # how long to wait for a linked account to (re)connect
 
-class RequestStatus:
-    """Status of an agent request record."""
-
-    PROCESSING = "processing"
-    WAITING = "waiting"  # the agent asked the landlord something and is paused
-    DONE = "done"
-    CANCELLED = "cancelled"
-    FAILED = "failed"
-
-
 WORKER_MAX_THREADS = 4
 # Each tap on a multi-select poll arrives as its own vote. Wait this long after the
 # last tap before treating the selection as final.

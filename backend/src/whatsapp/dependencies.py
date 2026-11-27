@@ -1,5 +1,5 @@
 from src.agents.repository import ConversationRepository
-from src.whatsapp.repository import AgentRequestRepository, WhatsappAccountRepository
+from src.whatsapp.repository import WhatsappAccountRepository
 from src.whatsapp.service import WhatsappService
 from src.whatsapp.worker import MessageHandler
 
@@ -11,5 +11,5 @@ def get_whatsapp_service() -> WhatsappService:
 
     return WhatsappService(
         WhatsappAccountRepository(),
-        MessageHandler(AgentRequestRepository(), AlfredAgent(), ConversationRepository()),
+        MessageHandler(AlfredAgent(), ConversationRepository()),
     )

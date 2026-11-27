@@ -8,10 +8,10 @@ Only messages in the user's "Message yourself" chat are handled. Each one is:
   a poll vote            → remember it; once the taps settle, resume that run
   our own poll / list    → ignored
 
-Per prompt: save the request and react 👁️. A run either finishes (reply quoting the
-prompt, reaction ✅, request done / cancelled), pauses to ask something (request
-waiting, still 👁️), or fails (❌, request failed). A resumed run ends the same way,
-against the original prompt.
+Per prompt: record the conversation (agent_conversations.json, via the runner) and
+react 👁️. A run either finishes (reply quoting the prompt, reaction ✅), pauses to ask
+something (still 👁️), or fails (❌ and a short note). A resumed run ends the same way,
+against the original prompt. The runner keeps the conversation's status.
 """
 
 import logging
@@ -19,8 +19,6 @@ import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import datetime, timezone
-
 from neonize.client import NewClient
 from neonize.events import MessageEv
 from neonize.proto.Neonize_pb2 import JID
@@ -36,10 +34,8 @@ from src.whatsapp.constants import (
     REACTION_FAILED,
     REACTION_RECEIVED,
     WORKER_MAX_THREADS,
-    RequestStatus,
 )
 from src.whatsapp.interactions import ChoiceReply, decode_vote, is_question, parse_choice, parse_poll_vote
-from src.whatsapp.repository import AgentRequestRepository
 from src.whatsapp.sender import WhatsappSender
 from src.whatsapp.utils import format_agent_reply, to_jid
 
@@ -53,10 +49,6 @@ _vote_timers_guard = threading.Lock()
 
 QUESTION_CLOSED = "That question is no longer open."
 SOMETHING_WRONG = "Sorry, something went wrong: {error}"
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _plain(jid: JID) -> str:
@@ -76,8 +68,7 @@ class Resume:
 
 
 class MessageHandler:
-    def __init__(self, repository: AgentRequestRepository, agent: Agent, conversations: ConversationRepository):
-        self.repository = repository
+    def __init__(self, agent: Agent, conversations: ConversationRepository):
         self.agent = agent
         self.runner = ConversationRunner(agent, conversations)
 
@@ -114,32 +105,21 @@ class MessageHandler:
     def _on_prompt(self, client_id: str, client: NewClient, event: MessageEv, prompt: str) -> None:
         source = event.Info.MessageSource
         prompt_ref = {"chat": _plain(source.Chat), "sender": _plain(source.Sender), "message_id": event.Info.ID}
-        record = self.repository.create({
-            "client_id": client_id,
-            "agent": self.agent.name,
-            "chat_jid": prompt_ref["chat"],
-            "sender_jid": prompt_ref["sender"],
-            "message_id": event.Info.ID,
-            "prompt": prompt,
-            "response": None,
-            "status": RequestStatus.PROCESSING,
-            "error": None,
-            "created_at": _now(),
-            "completed_at": None,
-        })
-        sender = WhatsappSender(client)
-        self._react(sender, prompt_ref, REACTION_RECEIVED)
-        _executor.submit(self._start, client_id, client, event, prompt, record["id"], prompt_ref)
+        thread_id = self.runner.open(client_id, prompt, prompt_ref)
+        self._react(WhatsappSender(client), prompt_ref, REACTION_RECEIVED)
+        _executor.submit(self._start, client_id, client, event, prompt, thread_id, prompt_ref)
 
-    def _start(self, client_id: str, client: NewClient, event: MessageEv, prompt: str, request_id: str, prompt_ref: dict) -> None:
+    def _start(
+        self, client_id: str, client: NewClient, event: MessageEv, prompt: str, thread_id: str, prompt_ref: dict
+    ) -> None:
         """Runs on a worker thread."""
         sender = WhatsappSender(client)
         try:
-            result = self.runner.start(prompt, self._context(client_id, client, prompt_ref), request_id, prompt_ref)
+            result = self.runner.start(thread_id, prompt, self._context(client_id, client, prompt_ref))
         except Exception as e:
-            self._fail(sender, request_id, prompt_ref, e)
+            self._fail(sender, thread_id, prompt_ref, e)
             return
-        self._finish(sender, request_id, prompt_ref, result, reply_to=event)
+        self._finish(sender, thread_id, prompt_ref, result, reply_to=event)
 
     # ---- answers to questions ----
 
@@ -185,53 +165,45 @@ class MessageHandler:
 
     def _resume(self, job: Resume) -> None:
         """Runs on a worker thread."""
-        conversation = job.conversation
-        prompt_ref, request_id = conversation["prompt_ref"], conversation["request_id"]
+        thread_id, prompt_ref = job.conversation["thread_id"], job.conversation["prompt_ref"]
         sender = WhatsappSender(job.client)
         with _vote_timers_guard:
-            _vote_timers.pop(conversation["thread_id"], None)
+            _vote_timers.pop(thread_id, None)
         try:
             ctx = self._context(job.client_id, job.client, prompt_ref)
-            result = self.runner.resume(conversation["thread_id"], job.question_id, job.answer, ctx)
+            result = self.runner.resume(thread_id, job.question_id, job.answer, ctx)
         except Exception as e:
-            self._fail(sender, request_id, prompt_ref, e)
+            self._fail(sender, thread_id, prompt_ref, e)
             return
         if result is not None:  # None: the run had already moved past this question
-            self._finish(sender, request_id, prompt_ref, result)
+            self._finish(sender, thread_id, prompt_ref, result)
 
     # ---- outcomes ----
 
     def _finish(
         self,
         sender: WhatsappSender,
-        request_id: str,
+        thread_id: str,
         prompt_ref: dict,
         result: AgentResult,
         reply_to: MessageEv | None = None,
     ) -> None:
+        """Send the final reply. The runner has already recorded the outcome."""
         if result.waiting:
-            self.repository.update(request_id, {"status": RequestStatus.WAITING})
-            return
-        response = format_agent_reply(self.agent.signature, result.reply) if result.reply else None
+            return  # the agent sent its question; nothing to reply yet
         try:
-            if response:
-                sender.text(prompt_ref["chat"], response, reply_to=reply_to)
+            if result.reply:
+                sender.text(prompt_ref["chat"], format_agent_reply(self.agent.signature, result.reply), reply_to=reply_to)
         except Exception as e:
-            self._fail(sender, request_id, prompt_ref, e)
+            self._fail(sender, thread_id, prompt_ref, e)
             return
         self._react(sender, prompt_ref, REACTION_DONE)
-        status = RequestStatus.CANCELLED if result.outcome == "cancelled" else RequestStatus.DONE
-        self.repository.update(request_id, {"status": status, "response": response, "completed_at": _now()})
 
-    def _fail(self, sender: WhatsappSender, request_id: str, prompt_ref: dict, error: Exception) -> None:
+    def _fail(self, sender: WhatsappSender, thread_id: str, prompt_ref: dict, error: Exception) -> None:
         log.exception("%s failed on message %s", self.agent.name, prompt_ref["message_id"], exc_info=error)
+        self.runner.mark_failed(thread_id, error)
         self._react(sender, prompt_ref, REACTION_FAILED)
         self._say(sender, prompt_ref["chat"], SOMETHING_WRONG.format(error=error))
-        self.repository.update(request_id, {
-            "status": RequestStatus.FAILED,
-            "error": str(error),
-            "completed_at": _now(),
-        })
 
     # ---- helpers ----
 

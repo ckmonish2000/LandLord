@@ -11,6 +11,7 @@ Backend (http://127.0.0.1:8000):
 
 ```sh
 cd backend
+cp .env.example .env   # then set AUTH_SECRET; start LM Studio's server for Alfred
 uv sync
 uv run fastapi dev src/main.py
 ```

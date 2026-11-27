@@ -1,7 +1,10 @@
-"""Starts and resumes agent runs and keeps each run's conversation record current.
+"""Starts and resumes agent runs, and keeps each conversation's record current.
 
-The record is what lets an incoming answer find its paused run:
-    new text            -> start()   (new thread_id)
+The record (agent_conversations.json) is both the history of the conversation and
+what lets an incoming answer find its paused run:
+
+    message arrives      -> open()  (new thread_id, status running)
+    on a worker thread   -> start()
     answer to a question -> find_waiting_on() -> resume()
 """
 
@@ -10,6 +13,7 @@ import uuid
 from datetime import datetime, timezone
 
 from src.agents.base import Agent, AgentContext, AgentResult, Answer
+from src.agents.constants import ConversationStatus
 from src.agents.repository import ConversationRepository
 
 # One lock per thread, so a button tap and a poll vote can't resume the same run at once.
@@ -31,21 +35,29 @@ class ConversationRunner:
         self.agent = agent
         self.conversations = conversations
 
-    def start(self, prompt: str, ctx: AgentContext, request_id: str, prompt_ref: dict) -> AgentResult:
+    def open(self, client_id: str, prompt: str, prompt_ref: dict) -> str:
+        """Record a new conversation the moment the message arrives. Returns its thread_id.
+        Done before any slow work, so even a failure on the way is in the history."""
         thread_id = str(uuid.uuid4())
         now = _now()
         self.conversations.save(thread_id, {
-            "client_id": ctx.client_id,
+            "client_id": client_id,
             "agent": self.agent.name,
-            "status": "running",
+            "prompt": prompt,
+            "response": None,
+            "status": ConversationStatus.RUNNING,
             "stage": None,
+            "error": None,
             "waiting": None,
             "votes": {},
-            "request_id": request_id,
             "prompt_ref": prompt_ref,
             "created_at": now,
             "updated_at": now,
+            "completed_at": None,
         })
+        return thread_id
+
+    def start(self, thread_id: str, prompt: str, ctx: AgentContext) -> AgentResult:
         with _lock(thread_id):
             return self._run(thread_id, lambda: self.agent.start(thread_id, prompt, ctx))
 
@@ -54,11 +66,11 @@ class ConversationRunner:
         `question_id` (already answered, or moved on to another question)."""
         with _lock(thread_id):
             conversation = self.conversations.get_by_thread(thread_id)
-            if not conversation or conversation["status"] != "waiting":
+            if not conversation or conversation["status"] != ConversationStatus.WAITING:
                 return None
             if question_id not in (conversation.get("waiting") or {}).get("message_ids", []):
                 return None
-            self.conversations.save(thread_id, {"status": "running", "updated_at": _now()})
+            self.conversations.save(thread_id, {"status": ConversationStatus.RUNNING, "updated_at": _now()})
             return self._run(thread_id, lambda: self.agent.resume(thread_id, answer, ctx))
 
     def find_waiting_on(self, client_id: str, message_id: str) -> dict | None:
@@ -74,15 +86,32 @@ class ConversationRunner:
         polls = (conversation.get("waiting") or {}).get("polls", {})
         return [name for pid in polls for name in votes.get(pid, [])]
 
+    def mark_failed(self, thread_id: str, error: Exception | str) -> None:
+        """For failures outside the agent, e.g. the reply could not be sent."""
+        now = _now()
+        self.conversations.save(thread_id, {
+            "status": ConversationStatus.FAILED,
+            "error": str(error),
+            "waiting": None,
+            "updated_at": now,
+            "completed_at": now,
+        })
+
     def _run(self, thread_id: str, call) -> AgentResult:
         try:
             result = call()
         except Exception as e:
-            self.conversations.save(thread_id, {"status": "failed", "error": str(e), "updated_at": _now()})
+            self.mark_failed(thread_id, e)
             raise
+        now = _now()
         if result.waiting:
-            fields = {"status": "waiting", "stage": result.waiting.get("stage"), "waiting": result.waiting}
+            fields = {
+                "status": ConversationStatus.WAITING,
+                "stage": result.waiting.get("stage"),
+                "waiting": result.waiting,
+            }
         else:
-            fields = {"status": result.outcome or "done", "waiting": None}
-        self.conversations.save(thread_id, {**fields, "updated_at": _now()})
+            status = ConversationStatus.CANCELLED if result.outcome == "cancelled" else ConversationStatus.DONE
+            fields = {"status": status, "response": result.reply, "waiting": None, "completed_at": now}
+        self.conversations.save(thread_id, {**fields, "updated_at": now})
         return result
