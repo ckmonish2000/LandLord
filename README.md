@@ -25,3 +25,16 @@ npm run dev
 ```
 
 The frontend calls `/api/*`; Vite forwards those requests to the backend on port 8000.
+
+## Code quality (backend)
+
+[Ruff](https://docs.astral.sh/ruff/) lints and formats the Python code (like ESLint + Prettier). Settings are in `backend/pyproject.toml`.
+
+```sh
+cd backend
+uv run ruff check .          # lint
+uv run ruff check . --fix    # lint and auto-fix what it can
+uv run ruff format .         # format
+```
+
+In VS Code, install the Ruff extension and turn on format on save.
