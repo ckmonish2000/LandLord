@@ -1,7 +1,7 @@
-"""Routes the linked user's own WhatsApp messages to the agent, on a thread pool so
-slow work stays off neonize's event threads.
+"""WhatsApp worker: routes the landlord's own WhatsApp messages to the agent, on a
+thread pool so slow work stays off neonize's event threads.
 
-Only messages in the user's "Message yourself" chat are handled. Each one is:
+Only messages in the landlord's "Message yourself" chat are handled. Each one is:
 
   a new prompt (text)    → start a new agent run
   a list / button tap    → resume the run that asked that question
@@ -15,62 +15,44 @@ against the original prompt. The runner keeps the conversation's status.
 """
 
 import logging
-import threading
-from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+
 from neonize.client import NewClient
 from neonize.events import MessageEv
 from neonize.proto.Neonize_pb2 import JID
 from neonize.utils.message import extract_text
 
-from src.agents.base import Agent, AgentContext, AgentResult, Answer, choice_answer, poll_answer
+from src.agents.base import Agent, AgentContext, AgentResult, choice_answer, poll_answer
 from src.agents.repository import ConversationRepository
 from src.agents.runner import ConversationRunner
 from src.whatsapp.channel import WhatsappChannel
-from src.whatsapp.constants import (
-    POLL_SETTLE_SECONDS,
-    REACTION_DONE,
-    REACTION_FAILED,
-    REACTION_RECEIVED,
-    WORKER_MAX_THREADS,
-)
 from src.whatsapp.interactions import ChoiceReply, decode_vote, is_question, parse_choice, parse_poll_vote
 from src.whatsapp.sender import WhatsappSender
 from src.whatsapp.utils import format_agent_reply, to_jid
+from src.workers.whatsapp.constants import (
+    POLL_SETTLE_SECONDS,
+    QUESTION_CLOSED,
+    REACTION_DONE,
+    REACTION_FAILED,
+    REACTION_RECEIVED,
+    SOMETHING_WRONG,
+    WHATSAPP_MAX_THREADS,
+)
+from src.workers.whatsapp.schemas import Resume
+from src.workers.whatsapp.utils import VoteSettler, plain_jid
 
 log = logging.getLogger(__name__)
 
-_executor = ThreadPoolExecutor(max_workers=WORKER_MAX_THREADS, thread_name_prefix="wa-worker")
 
-# thread_id -> timer that resumes the run once poll taps stop arriving
-_vote_timers: dict[str, threading.Timer] = {}
-_vote_timers_guard = threading.Lock()
+class WhatsappWorker:
+    """One per process (see src/whatsapp/dependencies.py): it owns the thread pool and
+    the pending poll timers."""
 
-QUESTION_CLOSED = "That question is no longer open."
-SOMETHING_WRONG = "Sorry, something went wrong: {error}"
-
-
-def _plain(jid: JID) -> str:
-    """'user@server' without the device part, safe to store and turn back into a JID."""
-    return f"{jid.User}@{jid.Server}"
-
-
-@dataclass(frozen=True)
-class Resume:
-    """Everything a worker needs to continue a paused run."""
-
-    client_id: str
-    client: NewClient
-    conversation: dict
-    question_id: str  # the question that was answered
-    answer: Answer
-
-
-class MessageHandler:
     def __init__(self, agent: Agent, conversations: ConversationRepository):
         self.agent = agent
         self.runner = ConversationRunner(agent, conversations)
+        self._executor = ThreadPoolExecutor(max_workers=WHATSAPP_MAX_THREADS, thread_name_prefix="wa-worker")
+        self._votes = VoteSettler(POLL_SETTLE_SECONDS)
 
     # ---- entry point (neonize's thread: keep it quick) ----
 
@@ -92,7 +74,7 @@ class MessageHandler:
 
     @staticmethod
     def _is_self_chat(client: NewClient, chat: JID) -> bool:
-        """True for the user's own "Message yourself" chat.
+        """True for the landlord's own "Message yourself" chat.
 
         WhatsApp may address that chat by the phone number or by the account's @lid id.
         """
@@ -104,10 +86,10 @@ class MessageHandler:
 
     def _on_prompt(self, client_id: str, client: NewClient, event: MessageEv, prompt: str) -> None:
         source = event.Info.MessageSource
-        prompt_ref = {"chat": _plain(source.Chat), "sender": _plain(source.Sender), "message_id": event.Info.ID}
+        prompt_ref = {"chat": plain_jid(source.Chat), "sender": plain_jid(source.Sender), "message_id": event.Info.ID}
         thread_id = self.runner.open(client_id, prompt, prompt_ref)
         self._react(WhatsappSender(client), prompt_ref, REACTION_RECEIVED)
-        _executor.submit(self._start, client_id, client, event, prompt, thread_id, prompt_ref)
+        self._executor.submit(self._start, client_id, client, event, prompt, thread_id, prompt_ref)
 
     def _start(
         self, client_id: str, client: NewClient, event: MessageEv, prompt: str, thread_id: str, prompt_ref: dict
@@ -126,11 +108,11 @@ class MessageHandler:
     def _on_choice(self, client_id: str, client: NewClient, event: MessageEv, choice: ChoiceReply) -> None:
         conversation = self.runner.find_waiting_on(client_id, choice.question_id)
         if conversation is None:
-            chat = _plain(event.Info.MessageSource.Chat)
-            _executor.submit(self._say, WhatsappSender(client), chat, QUESTION_CLOSED)
+            chat = plain_jid(event.Info.MessageSource.Chat)
+            self._executor.submit(self._say, WhatsappSender(client), chat, QUESTION_CLOSED)
             return
         job = Resume(client_id, client, conversation, choice.question_id, choice_answer(choice.choice_id))
-        _executor.submit(self._resume, job)
+        self._executor.submit(self._resume, job)
 
     def _on_poll_vote(self, client_id: str, client: NewClient, event: MessageEv) -> None:
         poll_id = event.Message.pollUpdateMessage.pollCreationMessageKey.ID
@@ -146,29 +128,17 @@ class MessageHandler:
         thread_id = conversation["thread_id"]
         selected = self.runner.record_vote(thread_id, poll_id, decode_vote(vote, options))
 
+        if not selected:  # every option unticked: wait for a new choice
+            self._votes.cancel(thread_id)
+            return
         job = Resume(client_id, client, conversation, poll_id, poll_answer(selected))
-        self._settle(thread_id, (lambda: _executor.submit(self._resume, job)) if selected else None)
-
-    @staticmethod
-    def _settle(thread_id: str, action: Callable[[], object] | None) -> None:
-        """Run `action` once no new vote has arrived for POLL_SETTLE_SECONDS.
-        A new vote replaces the pending action; action=None just cancels it."""
-        with _vote_timers_guard:
-            if (pending := _vote_timers.pop(thread_id, None)) is not None:
-                pending.cancel()
-            if action is None:
-                return
-            timer = threading.Timer(POLL_SETTLE_SECONDS, action)
-            timer.daemon = True
-            _vote_timers[thread_id] = timer
-            timer.start()
+        self._votes.settle(thread_id, lambda: self._executor.submit(self._resume, job))
 
     def _resume(self, job: Resume) -> None:
         """Runs on a worker thread."""
         thread_id, prompt_ref = job.conversation["thread_id"], job.conversation["prompt_ref"]
         sender = WhatsappSender(job.client)
-        with _vote_timers_guard:
-            _vote_timers.pop(thread_id, None)
+        self._votes.cancel(thread_id)  # e.g. Yes was tapped while a vote was still settling
         try:
             ctx = self._context(job.client_id, job.client, prompt_ref)
             result = self.runner.resume(thread_id, job.question_id, job.answer, ctx)
@@ -193,7 +163,8 @@ class MessageHandler:
             return  # the agent sent its question; nothing to reply yet
         try:
             if result.reply:
-                sender.text(prompt_ref["chat"], format_agent_reply(self.agent.signature, result.reply), reply_to=reply_to)
+                reply = format_agent_reply(self.agent.signature, result.reply)
+                sender.text(prompt_ref["chat"], reply, reply_to=reply_to)
         except Exception as e:
             self._fail(sender, thread_id, prompt_ref, e)
             return
@@ -218,7 +189,7 @@ class MessageHandler:
         return AgentContext(client_id=client_id, channel=channel)
 
     def _say(self, sender: WhatsappSender, chat: str, body: str) -> None:
-        """Send Alfred a short note to the landlord. Never raises."""
+        """Send the landlord a short note from the agent. Never raises."""
         try:
             sender.text(chat, format_agent_reply(self.agent.signature, body))
         except Exception:
@@ -232,11 +203,7 @@ class MessageHandler:
         except Exception:
             log.exception("could not react %s on message %s", emoji, prompt_ref["message_id"])
 
-    @staticmethod
-    def shutdown() -> None:
+    def shutdown(self) -> None:
         """Stop accepting work and drop queued tasks; running ones finish on their own."""
-        with _vote_timers_guard:
-            for timer in _vote_timers.values():
-                timer.cancel()
-            _vote_timers.clear()
-        _executor.shutdown(wait=False, cancel_futures=True)
+        self._votes.shutdown()
+        self._executor.shutdown(wait=False, cancel_futures=True)

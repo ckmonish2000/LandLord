@@ -3,8 +3,6 @@ export {
   ArrowClockwise as RefreshIcon,
   ArrowLeft as BackIcon,
   Buildings as BuildingIcon,
-  Check as CheckIcon,
-  House as HouseIcon,
   HouseLine as HomeIcon,
   IdentificationCard as MemberCardIcon,
   Info as InfoIcon,

@@ -169,11 +169,6 @@ class WhatsappSender:
 
         return self._send(send)
 
-    def react_to(self, event: MessageEv, emoji: str) -> str:
-        """React to a received message."""
-        source = event.Info.MessageSource
-        return self.react(source.Chat, source.Sender, event.Info.ID, emoji)
-
     # ---- internals ----
 
     @staticmethod

@@ -1,14 +1,9 @@
-from datetime import datetime, timezone
-
 from src.properties.exceptions import PropertyExists, PropertyNotFound
 from src.properties.schemas import HouseAssignmentItem
 from src.properties.repository import HouseMemberRepository, HouseRepository, PropertyRepository
 from src.properties.utils import member_chat_jid, member_display_name, member_user_ids, name_matches
 from src.whatsapp.service import WhatsappService
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from src.utils import now_iso
 
 
 def _assignment(link: dict | None, houses: dict[str, dict]) -> dict:
@@ -51,7 +46,7 @@ class PropertyService:
             "client_id": client_id,
             "group_jid": group["jid"],
             "name": group["name"],
-            "created_at": _now(),
+            "created_at": now_iso(),
         })
 
     def list_members(self, client_id: str, property_id: str, pictures: bool = True) -> list[dict]:
@@ -97,15 +92,11 @@ class PropertyService:
                 "house_id": house["id"] if house else None,
                 "is_owner": item.is_owner,
                 "lives_here": item.lives_here,
-                "updated_at": _now(),
+                "updated_at": now_iso(),
             })
             houses = {house["id"]: house} if house else {}
             saved.append({"member_jid": item.member_jid, **_assignment(link, houses)})
         return saved
-
-    def get_property(self, client_id: str, property_id: str) -> dict:
-        """The landlord's property, or PropertyNotFound."""
-        return self._get(client_id, property_id)
 
     def _get(self, client_id: str, property_id: str) -> dict:
         prop = self.properties.get_by_id(property_id)

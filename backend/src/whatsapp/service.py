@@ -1,13 +1,12 @@
 import io
 import logging
-from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 import segno
 from neonize.proto.Neonize_pb2 import JID, ContactInfo, Device, GetProfilePictureParams, GroupInfo
 from neonize.utils.jid import Jid2String
 
 from src.whatsapp import sessions
-from src.whatsapp.worker import MessageHandler
 from src.whatsapp.constants import (
     CONNECT_WAIT_SECONDS,
     ERR_GROUP_NOT_FOUND,
@@ -24,6 +23,7 @@ from src.whatsapp.exceptions import (
     WhatsappRequestFailed,
 )
 from src.whatsapp.repository import WhatsappAccountRepository
+from src.utils import now_iso
 from src.whatsapp.utils import (
     contacts_by_jid,
     find_contact,
@@ -32,17 +32,16 @@ from src.whatsapp.utils import (
     member_to_dict,
 )
 
+if TYPE_CHECKING:
+    from src.workers.whatsapp import WhatsappWorker
+
 log = logging.getLogger(__name__)
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
 class WhatsappService:
-    def __init__(self, repository: WhatsappAccountRepository, messages: MessageHandler):
+    def __init__(self, repository: WhatsappAccountRepository, worker: "WhatsappWorker"):
         self.repository = repository
-        self.messages = messages
+        self.worker = worker  # handles incoming messages
 
     # ---- linking ----
 
@@ -138,7 +137,7 @@ class WhatsappService:
 
     def stop_all(self) -> None:
         sessions.stop_all()
-        self.messages.shutdown()
+        self.worker.shutdown()
 
     # ---- internals ----
 
@@ -160,7 +159,7 @@ class WhatsappService:
                 IsEmpty=False,
             )
         return sessions.get_or_start(
-            client_id, jid, self._on_connected, self._on_logged_out, self.messages.on_message
+            client_id, jid, self._on_connected, self._on_logged_out, self.worker.on_message
         )
 
     def _session_awaiting_pairing(self, client_id: str) -> sessions.Session:
@@ -186,7 +185,7 @@ class WhatsappService:
     # ---- event callbacks (called from the session's thread) ----
 
     def _on_connected(self, client_id: str, me: Device) -> None:
-        now = _now()
+        now = now_iso()
         existing = self.repository.get_by_client_id(client_id)
         self.repository.save(client_id, {
             "jid": Jid2String(me.JID),
@@ -204,5 +203,5 @@ class WhatsappService:
         log.info("whatsapp connected for %s as %s", client_id, me.JID.User)
 
     def _on_logged_out(self, client_id: str, reason: int) -> None:
-        self.repository.save(client_id, {"status": AccountStatus.LOGGED_OUT, "logged_out_at": _now()})
+        self.repository.save(client_id, {"status": AccountStatus.LOGGED_OUT, "logged_out_at": now_iso()})
         log.info("whatsapp logged out for %s (reason %s)", client_id, reason)

@@ -1,14 +1,6 @@
 QR_WAIT_SECONDS = 15  # how long to wait for WhatsApp to send the first QR
 CONNECT_WAIT_SECONDS = 15  # how long to wait for a linked account to (re)connect
 
-WORKER_MAX_THREADS = 4
-# Each tap on a multi-select poll arrives as its own vote. Wait this long after the
-# last tap before treating the selection as final.
-POLL_SETTLE_SECONDS = 6
-REACTION_RECEIVED = "👁️"
-REACTION_DONE = "✅"
-REACTION_FAILED = "❌"
-
 GROUP_SERVER = "g.us"
 USER_SERVER = "s.whatsapp.net"  # phone number accounts
 # 120363012345678901, old-style 919876543210-1612345678, optionally ending in @g.us

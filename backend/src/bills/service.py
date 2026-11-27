@@ -1,11 +1,6 @@
-from datetime import datetime, timezone
-
 from src.bills.repository import BillRepository
 from src.bills.utils import split_evenly
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from src.utils import now_iso
 
 
 class BillService:
@@ -31,7 +26,7 @@ class BillService:
         shares: list[dict],
         thread_id: str,
     ) -> dict:
-        now = _now()
+        now = now_iso()
         return self.bills.create({
             "client_id": client_id,
             "property_id": property_id,
@@ -53,10 +48,10 @@ class BillService:
         shares = [
             {**s, "delivery": delivery} if s["member_jid"] == member_jid else s for s in bill["shares"]
         ]
-        self.bills.update(bill_id, {"shares": shares, "updated_at": _now()})
+        self.bills.update(bill_id, {"shares": shares, "updated_at": now_iso()})
 
     def mark_group_delivery(self, bill_id: str, delivery: str) -> None:
-        self.bills.update(bill_id, {"group_delivery": delivery, "updated_at": _now()})
+        self.bills.update(bill_id, {"group_delivery": delivery, "updated_at": now_iso()})
 
     def mark_sent(self, bill_id: str) -> None:
-        self.bills.update(bill_id, {"status": "sent", "updated_at": _now()})
+        self.bills.update(bill_id, {"status": "sent", "updated_at": now_iso()})

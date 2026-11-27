@@ -1,3 +1,5 @@
+from enum import StrEnum
+
 NAME = "alfred"
 SIGNATURE = "🎩 *Alfred*"
 GREETING = "Hey, this is Alfred 👋\nHow can I help you today?"
@@ -9,6 +11,9 @@ HELP = (
     "_1000rs water tank for Vidyaranyapura, split it_"
 )
 
-# Where the router can send a message. Add one per sub-agent.
-ROUTE_BILL_SPLIT = "bill_split"
-ROUTE_GENERAL = "general"
+class Route(StrEnum):
+    """Where the router can send a message: one value per sub-agent. The values are
+    what the LLM answers with and the names of the graph's nodes."""
+
+    BILL_SPLIT = "bill_split"
+    GENERAL = "general"
