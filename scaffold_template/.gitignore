@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+
+# Local settings and data: secrets and databases never go in git
+.env
+backend/data/
